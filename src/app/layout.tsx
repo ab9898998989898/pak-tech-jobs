@@ -130,6 +130,13 @@ export default function RootLayout({
             gtag('config', 'G-XKS083QWTM');
           `}
         </Script>
+        {/* Google AdSense */}
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4356425558632515"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
         <Script
           src="https://quge5.com/88/tag.min.js"
           data-zone="250846"
