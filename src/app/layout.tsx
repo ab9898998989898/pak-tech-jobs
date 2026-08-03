@@ -136,6 +136,14 @@ export default function RootLayout({
           data-cfasync="false"
           strategy="afterInteractive"
         />
+        <Script
+          src="https://pl30667162.effectivecpmnetwork.com/c7/74/db/c774db6b6b9408b840103d3517075e5a.js"
+          strategy="afterInteractive"
+        />
+        <Script
+          src="https://pl30667163.effectivecpmnetwork.com/25/a3/76/25a376aebc65a2aea7a12a31cc7d88c4.js"
+          strategy="afterInteractive"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(!t&&d)||(t==='system'&&d)){document.documentElement.classList.add('dark');}}catch(e){}})();`,
