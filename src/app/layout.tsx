@@ -131,11 +131,10 @@ export default function RootLayout({
           `}
         </Script>
         {/* Google AdSense */}
-        <Script
+        <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4356425558632515"
           crossOrigin="anonymous"
-          strategy="afterInteractive"
         />
         <Script
           src="https://quge5.com/88/tag.min.js"
