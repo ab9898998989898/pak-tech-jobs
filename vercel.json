@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/demand",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/seeker-digest",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/recruiter-reengagement",
+      "schedule": "0 5 * * *"
     }
   ]
 }

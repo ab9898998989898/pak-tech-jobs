@@ -135,6 +135,11 @@ model User {
   // Theme preference
   themePreference      String?   @default("system")
 
+  // Automated re-engagement email opt-out.
+  // Transactional mail (application updates, interviews) ignores this flag.
+  marketingEmailsEnabled Boolean @default(true)
+  unsubscribeToken       String? @unique
+
   // Enterprise tier fields
   tier                 EmployerTier @default(FREE)
   maxRecruiterSeats    Int          @default(1)
@@ -160,6 +165,7 @@ model User {
   skillVerifications        SkillVerification[]
   reviewsGiven              Review[]           @relation("ReviewGiver")
   reviewsReceived           Review[]           @relation("ReviewReceiver")
+  emailLogs                 EmailLog[]
 }
 
 model JobPost {
@@ -435,4 +441,33 @@ model Review {
 
   @@unique([giverId, receiverId, applicationId])
   @@index([receiverId])
+}
+
+// --- Re-engagement Email System ---------------------------------------------
+
+enum EmailCampaign {
+  RECRUITER_LAPSED
+  RECRUITER_NEVER_POSTED
+  SEEKER_JOB_DIGEST
+  SEEKER_WEEKLY_NEWSLETTER
+}
+
+/// One row per email actually handed to Resend. Powers the admin dashboard,
+/// the duplicate-send guard, and post-send conversion tracking.
+model EmailLog {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Denormalized so the log stays truthful if the user later changes their email.
+  recipient    String
+  campaign     EmailCampaign
+  subject      String
+  /// Position in a capped nudge sequence (1, 2, 3). Always 1 for digests.
+  sequenceStep Int           @default(1)
+  /// Campaign-specific context, e.g. { jobIds: [...], daysSinceLastPost: 9 }
+  metadata     Json?
+  sentAt       DateTime      @default(now())
+
+  @@index([userId, campaign, sentAt])
+  @@index([campaign, sentAt])
 }
