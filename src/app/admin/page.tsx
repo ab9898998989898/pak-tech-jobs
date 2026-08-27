@@ -55,7 +55,32 @@ interface EnterpriseEmployer {
   hasCvAccess: boolean;
 }
 
-type Tab = "pending" | "recruiters" | "seekers" | "jobs" | "enterprise";
+interface EmailLogRow {
+  id: string;
+  recipient: string;
+  campaign: string;
+  subject: string;
+  sequenceStep: number;
+  sentAt: string;
+  user: { id: string; name: string; role: string; companyName: string | null };
+}
+
+interface ConversionStats {
+  emailsSent: number;
+  recipients: number;
+  converted: number;
+  conversionRate: number;
+}
+
+interface EmailLogResponse {
+  windowDays: number;
+  totals: Record<string, number>;
+  conversions: Record<string, ConversionStats>;
+  unsubscribed: number;
+  rows: EmailLogRow[];
+}
+
+type Tab = "pending" | "recruiters" | "seekers" | "jobs" | "enterprise" | "emails";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -589,6 +614,185 @@ function EnterpriseTab() {
   );
 }
 
+// ─── Emails Tab ───────────────────────────────────────────────────────────────
+
+const CAMPAIGN_LABEL: Record<string, string> = {
+  RECRUITER_LAPSED: "Lapsed poster",
+  RECRUITER_NEVER_POSTED: "Never posted",
+  SEEKER_JOB_DIGEST: "Seeker daily digest",
+  SEEKER_WEEKLY_NEWSLETTER: "Seeker weekly newsletter",
+};
+
+const CAMPAIGN_COLOR: Record<string, string> = {
+  RECRUITER_LAPSED: "bg-amber-500/10 text-amber-400",
+  RECRUITER_NEVER_POSTED: "bg-sky-500/10 text-sky-400",
+  SEEKER_JOB_DIGEST: "bg-emerald-500/10 text-emerald-400",
+  SEEKER_WEEKLY_NEWSLETTER: "bg-violet-500/10 text-violet-400",
+};
+
+function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <div className="rounded-xl border border-gray-700 bg-gray-800/50 p-4">
+      <div className="text-xs uppercase tracking-wider text-gray-500">{label}</div>
+      <div className="mt-1 text-2xl font-semibold text-white">{value}</div>
+      {sub && <div className="mt-1 text-xs text-gray-400">{sub}</div>}
+    </div>
+  );
+}
+
+function EmailsTab() {
+  const [data, setData] = useState<EmailLogResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [campaign, setCampaign] = useState("");
+  const [windowDays, setWindowDays] = useState(7);
+
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ windowDays: String(windowDays), limit: "200" });
+    if (campaign) params.set("campaign", campaign);
+    fetch(`/api/admin/email-log?${params}`)
+      .then(r => r.json())
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [campaign, windowDays]);
+
+  if (loading && !data) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+  if (!data) return <p className="text-gray-500 py-10 text-center">Could not load email activity.</p>;
+
+  const lapsed = data.conversions.RECRUITER_LAPSED;
+  const neverPosted = data.conversions.RECRUITER_NEVER_POSTED;
+
+  return (
+    <div className="space-y-8">
+      {/* Conversion — did the nudge make them post? */}
+      <div>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold text-white">Recruiter re-engagement</h2>
+          <label className="flex items-center gap-2 text-sm text-gray-400">
+            Posted within
+            <select
+              value={windowDays}
+              onChange={e => setWindowDays(Number(e.target.value))}
+              className="px-2 py-1 rounded-lg border border-gray-700 bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            >
+              <option value={3}>3 days</option>
+              <option value={7}>7 days</option>
+              <option value={14}>14 days</option>
+              <option value={30}>30 days</option>
+            </select>
+            of the email
+          </label>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Never posted — emailed"
+            value={neverPosted?.recipients ?? 0}
+            sub={`${neverPosted?.emailsSent ?? 0} emails sent`}
+          />
+          <StatCard
+            label="Never posted — then posted"
+            value={neverPosted?.converted ?? 0}
+            sub={`${neverPosted?.conversionRate ?? 0}% conversion`}
+          />
+          <StatCard
+            label="Lapsed — emailed"
+            value={lapsed?.recipients ?? 0}
+            sub={`${lapsed?.emailsSent ?? 0} emails sent`}
+          />
+          <StatCard
+            label="Lapsed — then posted"
+            value={lapsed?.converted ?? 0}
+            sub={`${lapsed?.conversionRate ?? 0}% conversion`}
+          />
+        </div>
+      </div>
+
+      {/* Volume by campaign */}
+      <div>
+        <h2 className="text-lg font-semibold text-white mb-4">Total sent by campaign</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Object.keys(CAMPAIGN_LABEL).map(key => (
+            <StatCard key={key} label={CAMPAIGN_LABEL[key]} value={data.totals[key] ?? 0} />
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-gray-500">
+          {data.unsubscribed} user{data.unsubscribed === 1 ? " has" : "s have"} opted out of automated email.
+        </p>
+      </div>
+
+      {/* Log */}
+      <div>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold text-white">Send log</h2>
+          <select
+            value={campaign}
+            onChange={e => setCampaign(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-gray-700 bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+          >
+            <option value="">All campaigns</option>
+            {Object.keys(CAMPAIGN_LABEL).map(key => (
+              <option key={key} value={key}>{CAMPAIGN_LABEL[key]}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-gray-700">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-800 text-gray-400 text-xs uppercase tracking-wider">
+              <tr>
+                <th className="px-4 py-3 text-left">Sent</th>
+                <th className="px-4 py-3 text-left">Recipient</th>
+                <th className="px-4 py-3 text-left">Segment</th>
+                <th className="px-4 py-3 text-left">Step</th>
+                <th className="px-4 py-3 text-left">Subject</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {data.rows.length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-500">No emails sent yet</td></tr>
+              ) : data.rows.map(row => (
+                <tr key={row.id} className="hover:bg-gray-800/50 transition-colors">
+                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
+                    {new Date(row.sentAt).toLocaleString("en-PK", {
+                      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-white">{row.user.name}</div>
+                    <div className="text-xs text-gray-500">{row.recipient}</div>
+                    {row.user.companyName && (
+                      <div className="text-xs text-gray-500">{row.user.companyName}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${CAMPAIGN_COLOR[row.campaign] ?? "bg-gray-700 text-gray-300"}`}>
+                      {CAMPAIGN_LABEL[row.campaign] ?? row.campaign}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-400">
+                    {row.campaign.startsWith("RECRUITER_") ? `${row.sequenceStep} of 3` : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 max-w-xs truncate" title={row.subject}>
+                    {row.subject}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -622,6 +826,7 @@ export default function AdminPage() {
     { key: "seekers", label: "Job Seekers", badge: usersLoading ? undefined : users.filter(u => u.role === "APPLICANT").length },
     { key: "jobs", label: "Job Posts", badge: jobsLoading ? undefined : jobs.length },
     { key: "enterprise", label: "Enterprise" },
+    { key: "emails", label: "Emails" },
   ];
 
   const isLoading = (activeTab === "pending" && pendingLoading) ||
@@ -666,6 +871,7 @@ export default function AdminPage() {
             {activeTab === "seekers" && <SeekersTab users={users} />}
             {activeTab === "jobs" && <JobsTab jobs={jobs} />}
             {activeTab === "enterprise" && <EnterpriseTab />}
+            {activeTab === "emails" && <EmailsTab />}
           </>
         )}
       </div>

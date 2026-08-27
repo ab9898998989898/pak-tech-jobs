@@ -9,17 +9,30 @@ export interface EmailPayload {
   html: string;
 }
 
-export async function sendEmail(payload: EmailPayload): Promise<void> {
+/**
+ * Sends an email. Never throws — a failed send is logged and reported via the
+ * return value so callers can decide whether to record it.
+ *
+ * Returns true only when Resend accepted the message. The re-engagement system
+ * relies on this: an EmailLog row is written only for a genuine send, so the
+ * admin dashboard never overstates what actually went out.
+ */
+export async function sendEmail(payload: EmailPayload): Promise<boolean> {
   try {
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: FROM,
       to: payload.to,
       subject: payload.subject,
       html: payload.html,
     });
+    if (error) {
+      console.error("[email] send rejected:", error);
+      return false;
+    }
+    return true;
   } catch (error) {
     console.error("[email] send error:", error);
-    // Non-fatal — log and continue
+    return false;
   }
 }
 
