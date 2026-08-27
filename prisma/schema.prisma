@@ -75,6 +75,15 @@ enum NotificationType {
   REVIEW_RECEIVED
   APPLICATION_WITHDRAWN
   JOB_EXPIRING
+  PROMOTION_REQUESTED
+  PROMOTION_APPROVED
+  PROMOTION_DECLINED
+}
+
+enum PromotionRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
 }
 
 enum VerificationStatus {
@@ -166,6 +175,8 @@ model User {
   reviewsGiven              Review[]           @relation("ReviewGiver")
   reviewsReceived           Review[]           @relation("ReviewReceiver")
   emailLogs                 EmailLog[]
+  promotionRequests         PromotionRequest[] @relation("PromotionRequester")
+  promotionReviews          PromotionRequest[] @relation("PromotionReviewer")
 }
 
 model JobPost {
@@ -195,8 +206,9 @@ model JobPost {
   applyUrl             String?
   isPremium            Boolean   @default(false)
 
-  applications Application[]
-  savedByUsers SavedJob[]
+  applications      Application[]
+  savedByUsers      SavedJob[]
+  promotionRequests PromotionRequest[]
 
   @@index([city])
   @@index([jobType])
@@ -470,4 +482,32 @@ model EmailLog {
 
   @@index([userId, campaign, sentAt])
   @@index([campaign, sentAt])
+}
+
+// --- Promotion Requests -----------------------------------------------------
+
+/// A recruiter asking an admin to promote one of their listings.
+///
+/// Promotion itself stays admin-only (there is no payment integration yet), so
+/// this is the request channel: the recruiter asks, the admin is emailed and
+/// notified in-app, and approving flips the job's isFeatured/featuredUntil.
+model PromotionRequest {
+  id           String                 @id @default(cuid())
+  jobPostId    String
+  jobPost      JobPost                @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  recruiterId  String
+  recruiter    User                   @relation("PromotionRequester", fields: [recruiterId], references: [id], onDelete: Cascade)
+  status       PromotionRequestStatus @default(PENDING)
+  /// Optional note from the recruiter explaining why the role needs a boost.
+  message      String?
+  createdAt    DateTime               @default(now())
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedBy   User?                  @relation("PromotionReviewer", fields: [reviewedById], references: [id])
+  /// Admin's reason, surfaced to the recruiter when a request is declined.
+  reviewNote   String?
+
+  @@index([status, createdAt])
+  @@index([jobPostId])
+  @@index([recruiterId])
 }
