@@ -1,39 +1,92 @@
 @import "tailwindcss";
 
+/*
+ * Palette: LinkedIn's structural blue with Glassdoor's warmth.
+ *
+ * Base tokens resolve through CSS variables so `bg-card`, `text-muted` etc.
+ * adapt to the theme on their own. The `-dark` tokens stay *static dark* values
+ * rather than aliasing the base ones — `dark:bg-card-dark` still resolves
+ * correctly, and Footer's unconditional `bg-surface-dark` keeps its always-dark
+ * treatment.
+ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-primary: #10b981;
-  --color-primary-dark: #059669;
-  --color-primary-light: #34d399;
-  --color-accent: #06b6d4;
-  --color-surface: #f8fafc;
-  --color-surface-dark: #111827;
-  --color-card: #ffffff;
-  --color-card-dark: #1f2937;
-  --color-muted: #64748b;
-  --color-border: #e2e8f0;
-  --color-border-dark: #374151;
+
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-hover);
+  --color-primary-light: var(--primary-tint);
+
+  /* Green now means success — verified employers, healthy response rates —
+     rather than being the brand colour. */
+  --color-success: var(--success);
+
+  /* Warm amber: promoted listings and rating marks. Deliberately not blue, so
+     "sponsored" never reads as "selected". */
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-tint);
+
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+
+  /* Static dark values for the explicit dark: variants already in the codebase. */
+  --color-surface-dark: #1e242c;
+  --color-card-dark: #1b2027;
+  --color-border-dark: #2c333d;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
+  --background: #f4f2ee;
+  --foreground: #1b1f23;
+  --primary: #0a66c2;
+  --primary-hover: #004182;
+  --primary-tint: #e7f0fa;
+  --success: #057642;
+  --accent: #c37d16;
+  --accent-tint: #fffaf2;
+  --surface: #eef3f8;
+  --card: #ffffff;
+  --muted: #56687a;
+  --border: #dfe1e6;
 }
 
 /* Dark mode via .dark class (set by ThemeProvider) */
 .dark {
-  --background: #030712;
-  --foreground: #f1f5f9;
+  --background: #12161c;
+  --foreground: #e8edf2;
+  /* Lightened so it clears AA on a dark ground — #0A66C2 would not. */
+  --primary: #5ea9f0;
+  --primary-hover: #8cc2f6;
+  --primary-tint: #16263a;
+  --success: #4ed08a;
+  --accent: #e0a458;
+  --accent-tint: #241c10;
+  --surface: #1e242c;
+  --card: #1b2027;
+  --muted: #93a1b0;
+  --border: #2c333d;
 }
 
 /* Fallback: system preference when no class is set */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --background: #030712;
-    --foreground: #f1f5f9;
+    --background: #12161c;
+    --foreground: #e8edf2;
+    --primary: #5ea9f0;
+    --primary-hover: #8cc2f6;
+    --primary-tint: #16263a;
+    --success: #4ed08a;
+    --accent: #e0a458;
+    --accent-tint: #241c10;
+    --surface: #1e242c;
+    --card: #1b2027;
+    --muted: #93a1b0;
+    --border: #2c333d;
   }
 }
 
@@ -77,10 +130,10 @@ body {
 
 @keyframes pulse-glow {
   0%, 100% {
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 0 20px rgba(10, 102, 194, 0.3);
   }
   50% {
-    box-shadow: 0 0 40px rgba(16, 185, 129, 0.6);
+    box-shadow: 0 0 40px rgba(10, 102, 194, 0.6);
   }
 }
 
@@ -132,7 +185,7 @@ body {
 
 /* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #10b981, #06b6d4);
+  background: linear-gradient(135deg, #0a66c2, #2e8bd8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -154,7 +207,7 @@ body {
 }
 
 .gsap-card-hover:hover {
-  box-shadow: 0 20px 60px -10px rgba(16, 185, 129, 0.15), 0 8px 24px -4px rgba(0,0,0,0.3);
+  box-shadow: 0 20px 60px -10px rgba(10, 102, 194, 0.15), 0 8px 24px -4px rgba(0,0,0,0.3);
 }
 
 /* Smooth clip-path transitions */

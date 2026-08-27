@@ -1,17 +1,17 @@
-import { emailFooter } from "@/lib/emailPreferences";
+﻿import { emailFooter } from "@/lib/emailPreferences";
 
 /**
  * HTML bodies for the three re-engagement campaigns.
  *
  * Kept separate from `email.ts` (which holds transactional templates) so the
  * two concerns stay independently readable. Sending still goes through
- * `sendEmail()` from `email.ts` — this module only builds strings.
+ * `sendEmail()` from `email.ts` â€” this module only builds strings.
  */
 
 const SITE_URL =
   process.env.NEXTAUTH_URL?.replace(/\/$/, "") || "https://www.paktechjobs.com";
 
-const BRAND = "#10b981";
+const BRAND = "#0a66c2";
 
 /**
  * Job titles and company names are user-supplied and end up in someone else's
@@ -39,13 +39,13 @@ function cta(href: string, label: string): string {
   return `<a href="${href}" style="display:inline-block;margin-top:20px;padding:12px 24px;background:${BRAND};color:#ffffff;border-radius:8px;text-decoration:none;font-weight:600">${label}</a>`;
 }
 
-// ─── 1. Lapsed poster ────────────────────────────────────────────────────────
+// â”€â”€â”€ 1. Lapsed poster â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface LapsedRecruiterEmailOpts {
   recruiterName: string;
   daysSinceLastPost: number;
   lastJobTitle: string | null;
-  /** 1, 2 or 3 — later steps get progressively shorter copy. */
+  /** 1, 2 or 3 â€” later steps get progressively shorter copy. */
   sequenceStep: number;
   unsubscribeToken: string;
 }
@@ -58,7 +58,7 @@ export function lapsedRecruiterSubject(opts: {
     return `It's been ${opts.daysSinceLastPost} days since your last job post`;
   }
   if (opts.sequenceStep === 2) {
-    return "Your hiring pipeline is quiet — post a role?";
+    return "Your hiring pipeline is quiet â€” post a role?";
   }
   return "Still hiring? Your PakTechJobs account is waiting";
 }
@@ -77,7 +77,7 @@ export function lapsedRecruiterEmail(opts: LapsedRecruiterEmailOpts): string {
       <p>Hi ${name},</p>
       <p>It's been <strong>${opts.daysSinceLastPost} days</strong> since you last posted a role on PakTechJobs.</p>
       ${lastJob}
-      <p>Candidates check the board daily — a fresh listing puts you back in front of them. Posting takes about two minutes.</p>
+      <p>Candidates check the board daily â€” a fresh listing puts you back in front of them. Posting takes about two minutes.</p>
     `
       : opts.sequenceStep === 2
       ? `
@@ -87,7 +87,7 @@ export function lapsedRecruiterEmail(opts: LapsedRecruiterEmailOpts): string {
     `
       : `
       <p>Hi ${name},</p>
-      <p>We haven't seen a new listing from you in ${opts.daysSinceLastPost} days. This is the last reminder we'll send — post a role any time and we'll get it in front of Pakistan's tech talent.</p>
+      <p>We haven't seen a new listing from you in ${opts.daysSinceLastPost} days. This is the last reminder we'll send â€” post a role any time and we'll get it in front of Pakistan's tech talent.</p>
     `;
 
   return shell(
@@ -100,7 +100,7 @@ export function lapsedRecruiterEmail(opts: LapsedRecruiterEmailOpts): string {
   );
 }
 
-// ─── 2. Never posted ─────────────────────────────────────────────────────────
+// â”€â”€â”€ 2. Never posted â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface NeverPostedRecruiterEmailOpts {
   recruiterName: string;
@@ -126,27 +126,27 @@ export function neverPostedRecruiterEmail(
     opts.sequenceStep === 1
       ? `
       <p>Hi ${name},</p>
-      <p>Thanks for signing up to PakTechJobs. You haven't posted a role yet — let's fix that.</p>
+      <p>Thanks for signing up to PakTechJobs. You haven't posted a role yet â€” let's fix that.</p>
       <p>Once your first listing is live, applicants start landing in your dashboard where you can shortlist, message and schedule interviews without leaving the platform.</p>
       <ul style="color:#4b5563;line-height:1.8;padding-left:20px">
         <li>Posting is free and takes about two minutes</li>
         <li>Your listing reaches Pakistani developers actively looking</li>
-        <li>Applications arrive structured — no CV inbox chaos</li>
+        <li>Applications arrive structured â€” no CV inbox chaos</li>
       </ul>
     `
       : opts.sequenceStep === 2
       ? `
       <p>Hi ${name},</p>
-      <p>You created your account ${opts.daysSinceSignup} days ago but haven't posted a role yet. If you're hiring, your first listing is a couple of minutes away — and you'll start seeing applicants right after.</p>
+      <p>You created your account ${opts.daysSinceSignup} days ago but haven't posted a role yet. If you're hiring, your first listing is a couple of minutes away â€” and you'll start seeing applicants right after.</p>
     `
       : `
       <p>Hi ${name},</p>
-      <p>This is the last reminder we'll send. Your account is set up and ready whenever you want to post a role — nothing expires.</p>
+      <p>This is the last reminder we'll send. Your account is set up and ready whenever you want to post a role â€” nothing expires.</p>
     `;
 
   return shell(
     `
-      <h2 style="color:${BRAND};margin-top:0">You're set up — now let's see some applicants</h2>
+      <h2 style="color:${BRAND};margin-top:0">You're set up â€” now let's see some applicants</h2>
       ${body}
       ${cta(`${SITE_URL}/recruiter/jobs/new`, "Post Your First Job")}
     `,
@@ -154,7 +154,7 @@ export function neverPostedRecruiterEmail(
   );
 }
 
-// ─── 3. Seeker new-jobs digest ───────────────────────────────────────────────
+// â”€â”€â”€ 3. Seeker new-jobs digest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface DigestJob {
   id: string;
