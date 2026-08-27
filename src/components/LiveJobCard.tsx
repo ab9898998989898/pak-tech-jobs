@@ -15,6 +15,8 @@ export interface LiveJob {
   createdAt: string;
   applyUrl?: string | null;
   isPremium?: boolean;
+  isFeatured?: boolean;
+  featuredUntil?: string | null;
   recruiter: {
     id: string;
     name: string;
@@ -60,10 +62,27 @@ export default function LiveJobCard({ job }: { job: LiveJob }) {
   const companyName = job.recruiter.companyName ?? job.recruiter.name;
   const isAggregated = !!job.applyUrl;
 
+  // Mirrors isPromotionActive() — a promotion that lapsed since the nightly
+  // expiry cron ran must stop showing as promoted straight away.
+  const isPromoted =
+    !!job.isFeatured &&
+    (!job.featuredUntil || new Date(job.featuredUntil).getTime() > Date.now());
+
   return (
-    <div className="group relative flex flex-col p-6 rounded-2xl border border-border dark:border-border-dark bg-card dark:bg-card-dark transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/50">
-      {/* Top-right badges: Premium and/or External */}
+    <div
+      className={
+        isPromoted
+          ? "group relative flex flex-col p-6 rounded-2xl border-2 border-primary/40 bg-primary/[0.04] dark:bg-primary/[0.07] ring-1 ring-primary/10 shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/60"
+          : "group relative flex flex-col p-6 rounded-2xl border border-border dark:border-border-dark bg-card dark:bg-card-dark transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/50"
+      }
+    >
+      {/* Top-right badges: Promoted, Premium and/or External */}
       <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+        {isPromoted && (
+          <span className="text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/30">
+            ★ Promoted
+          </span>
+        )}
         {job.isPremium && (
           <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
             ⭐ Premium
