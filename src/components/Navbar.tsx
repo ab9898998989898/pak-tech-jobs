@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import NotificationBell from "./NotificationBell";
@@ -14,84 +15,138 @@ const navLinks = [
   { href: "/courses", label: "Courses" },
 ];
 
+const jobsMenu = {
+  browse: [
+    { href: "/jobs", label: "All Jobs" },
+    { href: "/remote-jobs", label: "Remote Jobs" },
+    { href: "/jobs-in-lahore", label: "Jobs in Lahore" },
+    { href: "/jobs-in-karachi", label: "Jobs in Karachi" },
+  ],
+  skills: [
+    { href: "/react-jobs-pakistan", label: "React Jobs" },
+    { href: "/nodejs-jobs-pakistan", label: "Node.js Jobs" },
+    { href: "/mern-jobs-pakistan", label: "MERN Stack" },
+    { href: "/ai-jobs-pakistan", label: "AI & ML Jobs" },
+    { href: "/devops-jobs-pakistan", label: "DevOps Jobs" },
+  ],
+  entry: [
+    { href: "/internships-pakistan", label: "Internships" },
+    { href: "/fresh-graduate-it-jobs", label: "Fresh Graduate" },
+  ],
+};
+
 function getDashboardHref(role?: string) {
   if (role === "RECRUITER") return "/recruiter/dashboard";
   if (role === "ADMIN") return "/admin";
   return "/dashboard";
 }
 
+/** Shared item styling for the desktop dropdown and the mobile sheet. */
+const menuItem =
+  "block rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface hover:text-primary";
+
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [jobsDropdownOpen, setJobsDropdownOpen] = useState(false);
   const { data: session } = useSession();
+  const pathname = usePathname();
+
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  /** Top-level link with a LinkedIn-style underline on the active route. */
+  const topLink = (href: string) =>
+    `relative flex h-14 items-center px-3 text-sm font-medium transition-colors ${
+      isActive(href)
+        ? "text-primary after:absolute after:inset-x-2 after:bottom-0 after:h-[2px] after:rounded-full after:bg-primary"
+        : "text-muted hover:text-foreground"
+    }`;
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center group">
-            <Logo size="md" className="group-hover:opacity-85 transition-opacity" />
-          </Link>
+    // The bottom hairline is a shadow, not a border: a border would add 1px to
+    // the nav's height and push content under the fixed bar, since `main` only
+    // offsets by the 56px content height.
+    <nav className="fixed inset-x-0 top-0 z-50 bg-card shadow-[0_1px_0_0_var(--border)]">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-14 items-center justify-between gap-2">
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-1">
-            {/* Jobs Dropdown */}
-            <div 
-              className="relative group"
-              onMouseEnter={() => setJobsDropdownOpen(true)}
-              onMouseLeave={() => setJobsDropdownOpen(false)}
-            >
-              <button className="px-4 py-2 rounded-lg text-sm font-medium text-foreground hover:text-foreground hover:bg-primary/10 transition-all duration-200 flex items-center gap-1">
-                Jobs
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-              
-              {jobsDropdownOpen && (
-                <div className="absolute bg-gray-900 left-0 mt-2 w-56 rounded-xl border border-border dark:border-border-dark shadow-xl py-2 z-50 animate-fade-in">
-                  <Link href="/jobs" className="block px-4 py-2 hover:bg-surface hover:text-emerald-800 text-sm font-medium">All Jobs</Link>
-                  <Link href="/remote-jobs" className="block px-4 py-2 hover:bg-surface hover:text-emerald-800 text-sm font-medium">Remote Jobs</Link>
-                  <Link href="/jobs-in-lahore" className="block px-4 py-2 hover:bg-surface hover:text-emerald-800 text-sm font-medium">Jobs in Lahore</Link>
-                  <Link href="/jobs-in-karachi" className="block px-4 py-2 hover:bg-surface hover:text-emerald-800 text-sm font-medium">Jobs in Karachi</Link>
-                  <div className="border-t border-border my-1"></div>
-                  <div className="px-4 py-1 text-xs text-muted uppercase tracking-wider font-bold">By Skill</div>
-                  <Link href="/react-jobs-pakistan" className="block px-4 py-2 hover:bg-surface hover:text-emerald-800 text-sm font-medium">React Jobs</Link>
-                  <Link href="/nodejs-jobs-pakistan" className="block px-4 py-2 hover:bg-surface hover:text-emerald-800 text-sm font-medium">Node.js Jobs</Link>
-                  <Link href="/mern-jobs-pakistan" className="block px-4 py-2 hover:bg-surface hover:text-emerald-800 text-sm font-medium">MERN Stack</Link>
-                  <Link href="/ai-jobs-pakistan" className="block px-4 py-2 hover:bg-surface hover:text-emerald-800 text-sm font-medium">AI & ML Jobs</Link>
-                  <Link href="/devops-jobs-pakistan" className="block px-4 py-2 hover:bg-surface hover:text-emerald-800 text-sm font-medium">DevOps Jobs</Link>
-                  <div className="border-t border-border my-1"></div>
-                  <Link href="/internships-pakistan" className="block px-4 py-2 hover:bg-surface text-sm font-medium text-primary">Internships</Link>
-                  <Link href="/fresh-graduate-it-jobs" className="block px-4 py-2 hover:bg-surface text-sm font-medium text-primary">Fresh Graduate</Link>
-                </div>
-              )}
-            </div>
+          <div className="flex items-center gap-1">
+            <Link href="/" className="group mr-2 flex items-center">
+              <Logo size="md" className="transition-opacity group-hover:opacity-85" />
+            </Link>
 
-            {/* Legacy Links */}
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-primary/10 transition-all duration-200"
+            {/* Desktop Nav */}
+            <div className="hidden items-center md:flex">
+              <div
+                className="relative"
+                onMouseEnter={() => setJobsDropdownOpen(true)}
+                onMouseLeave={() => setJobsDropdownOpen(false)}
               >
-                {link.label}
-              </Link>
-            ))}
+                <button
+                  className={`${topLink("/jobs")} gap-1`}
+                  aria-expanded={jobsDropdownOpen}
+                  aria-haspopup="true"
+                >
+                  Jobs
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {jobsDropdownOpen && (
+                  <div className="absolute left-0 z-50 w-60 rounded-lg border border-border bg-card p-1.5 shadow-lg">
+                    {jobsMenu.browse.map((l) => (
+                      <Link key={l.href} href={l.href} className={menuItem}>
+                        {l.label}
+                      </Link>
+                    ))}
+
+                    <div className="my-1.5 border-t border-border" />
+                    <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                      By skill
+                    </p>
+                    {jobsMenu.skills.map((l) => (
+                      <Link key={l.href} href={l.href} className={menuItem}>
+                        {l.label}
+                      </Link>
+                    ))}
+
+                    <div className="my-1.5 border-t border-border" />
+                    {jobsMenu.entry.map((l) => (
+                      <Link
+                        key={l.href}
+                        href={l.href}
+                        className="block rounded-md px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary-light"
+                      >
+                        {l.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {navLinks.map((link) => (
+                <Link key={link.href} href={link.href} className={topLink(link.href)}>
+                  {link.label}
+                </Link>
+              ))}
+            </div>
           </div>
 
-          {/* Auth / Role-aware links + Notification Bell */}
-          <div className="hidden md:flex items-center gap-1">
+          {/* Auth / role-aware actions */}
+          <div className="hidden items-center gap-1 md:flex">
             <Link
               href="/register?role=recruiter"
-              className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-white hover:bg-primary/90 transition-all duration-200 mr-1"
+              className="mr-1 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
             >
-              Post a Job — Free
+              Post a job — free
             </Link>
+
             {session?.user ? (
               <>
                 <Link
                   href={getDashboardHref(session.user.role as string)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-primary/10 transition-all duration-200"
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface hover:text-foreground"
                 >
                   Dashboard
                 </Link>
@@ -99,7 +154,7 @@ export default function Navbar() {
                 <NotificationBell />
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-primary/10 transition-all duration-200"
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface hover:text-foreground"
                 >
                   Sign out
                 </button>
@@ -109,13 +164,13 @@ export default function Navbar() {
                 <ThemeToggle />
                 <Link
                   href="/login"
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-primary/10 transition-all duration-200"
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface hover:text-foreground"
                 >
                   Sign in
                 </Link>
                 <Link
                   href="/register"
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-all duration-200"
+                  className="rounded-full border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary-light"
                 >
                   Register
                 </Link>
@@ -123,105 +178,111 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile: notification bell + hamburger */}
+          {/* Mobile */}
           <div className="flex items-center gap-1 md:hidden">
             <NotificationBell />
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="p-2 rounded-lg hover:bg-primary/10 transition-colors"
+              className="rounded-md p-2 text-foreground transition-colors hover:bg-surface"
               aria-label="Toggle menu"
+              aria-expanded={mobileOpen}
             >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              {mobileOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </button>
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {mobileOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden glass border-t border-border dark:border-border-dark animate-fade-in max-h-[80vh] overflow-y-auto">
-          <div className="px-4 py-4 space-y-4">
-            
+        <div className="max-h-[80vh] overflow-y-auto border-t border-border bg-card md:hidden">
+          <div className="space-y-4 px-4 py-4">
             <div>
-              <div className="text-xs font-bold text-muted uppercase tracking-wider mb-2 px-4">Jobs Directory</div>
-              <Link href="/jobs" onClick={() => setMobileOpen(false)} className="block px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface">All Jobs</Link>
-              <Link href="/remote-jobs" onClick={() => setMobileOpen(false)} className="block px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface">Remote Jobs</Link>
-              <Link href="/react-jobs-pakistan" onClick={() => setMobileOpen(false)} className="block px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface">React Jobs</Link>
-              <Link href="/internships-pakistan" onClick={() => setMobileOpen(false)} className="block px-4 py-2 rounded-lg text-sm font-medium text-primary hover:bg-surface">Internships</Link>
-              <Link href="/fresh-graduate-it-jobs" onClick={() => setMobileOpen(false)} className="block px-4 py-2 rounded-lg text-sm font-medium text-primary hover:bg-surface">Fresh Graduate</Link>
+              <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                Jobs directory
+              </p>
+              {[...jobsMenu.browse, ...jobsMenu.skills].map((l) => (
+                <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)} className={menuItem}>
+                  {l.label}
+                </Link>
+              ))}
+              {jobsMenu.entry.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="block rounded-md px-3 py-2 text-sm font-semibold text-primary hover:bg-primary-light"
+                >
+                  {l.label}
+                </Link>
+              ))}
             </div>
 
-            <div className="pt-2 border-t border-border">
-              <div className="text-xs font-bold text-muted uppercase tracking-wider mb-2 px-4 mt-2">Tools & Guides</div>
+            <div className="border-t border-border pt-3">
+              <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                Tools &amp; guides
+              </p>
               {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="block px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface"
-                >
+                <Link key={link.href} href={link.href} onClick={() => setMobileOpen(false)} className={menuItem}>
                   {link.label}
                 </Link>
               ))}
             </div>
 
-            <div className="pt-2 border-t border-border">
-              <div className="flex items-center px-4 py-2 gap-2">
+            <div className="border-t border-border pt-3">
+              <div className="flex items-center gap-2 px-3 py-2">
                 <span className="text-xs text-muted">Theme</span>
                 <ThemeToggle />
               </div>
+
               <Link
                 href="/register?role=recruiter"
                 onClick={() => setMobileOpen(false)}
-                className="block px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-white text-center mx-4 mb-2"
+                className="mb-2 block rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-white"
               >
-                Post a Job — Free
+                Post a job — free
               </Link>
+
               {session?.user ? (
                 <>
                   <Link
                     href={getDashboardHref(session.user.role as string)}
                     onClick={() => setMobileOpen(false)}
-                    className="block px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface"
+                    className={menuItem}
                   >
                     Dashboard
                   </Link>
                   <button
-                    onClick={() => { setMobileOpen(false); signOut({ callbackUrl: "/" }); }}
-                    className="block w-full text-left px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      signOut({ callbackUrl: "/" });
+                    }}
+                    className={`${menuItem} w-full text-left`}
                   >
                     Sign out
                   </button>
                 </>
               ) : (
                 <>
-                  <Link href="/login" onClick={() => setMobileOpen(false)} className="block px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface">Sign in</Link>
-                  <Link href="/register" onClick={() => setMobileOpen(false)} className="block px-4 py-2 rounded-lg text-sm font-medium text-primary hover:bg-surface">Register</Link>
+                  <Link href="/login" onClick={() => setMobileOpen(false)} className={menuItem}>
+                    Sign in
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setMobileOpen(false)}
+                    className="block rounded-md px-3 py-2 text-sm font-semibold text-primary hover:bg-primary-light"
+                  >
+                    Register
+                  </Link>
                 </>
               )}
             </div>
-
           </div>
         </div>
       )}

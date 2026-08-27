@@ -108,13 +108,13 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
 
 const STAGE_CLASSES: Record<PipelineStage, string> = {
   APPLIED:
-    "bg-gray-500/10 text-gray-400 border border-gray-500/20",
+    "bg-surface text-muted border border-border",
   SEEN:
     "bg-blue-500/10 text-blue-400 border border-blue-500/20",
   SHORTLISTED:
     "bg-purple-500/10 text-purple-400 border border-purple-500/20",
   INTERVIEW:
-    "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    "bg-success/10 text-success border border-success/20",
   OFFER:
     "bg-amber-500/10 text-amber-400 border border-amber-500/20",
   REJECTED:
@@ -137,7 +137,7 @@ function ResponseRateBadge({ rate }: { rate: number }) {
   const rounded = Math.round(rate);
   if (rounded >= 90) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-success/10 text-success border border-success/20">
         ✓ {rounded}% Highly Responsive
       </span>
     );
@@ -328,7 +328,7 @@ function ApplicationCard({ app, onViewDetail, onWithdraw }: { app: Application; 
               )}
             </span>
             <span className="hidden sm:inline">•</span>
-            <span className={isRemote ? "text-emerald-400" : ""}>
+            <span className={isRemote ? "text-success" : ""}>
               {isRemote ? "🌍 Remote" : `📍 ${jobPost.city}`}
             </span>
           </div>
@@ -486,7 +486,7 @@ function SkillGapReport() {
             >
               <span className="text-sm font-medium">{item.skill}</span>
               {has ? (
-                <span className="text-emerald-400 text-sm font-semibold">✓ Have it</span>
+                <span className="text-success text-sm font-semibold">✓ Have it</span>
               ) : (
                 <span className="text-red-400 text-sm font-semibold">✗ Gap</span>
               )}
@@ -587,18 +587,43 @@ export default function DashboardPage() {
     }
   };
 
+  // Withdrawn applications are excluded from every tile — they are no longer
+  // part of an active search, and counting them would overstate progress.
+  const live = applications.filter((a) => !a.isWithdrawn);
+  const atStage = (...stages: PipelineStage[]) =>
+    live.filter((a) => stages.includes(a.stage)).length;
+
+  const interviews = atStage("INTERVIEW");
+  const offers = atStage("OFFER");
+  const seekerStats: { label: string; value: number; tone?: string }[] = [
+    { label: "Applied", value: live.length },
+    { label: "In review", value: atStage("SEEN", "SHORTLISTED") },
+    { label: "Interviews", value: interviews, tone: interviews > 0 ? "text-success" : undefined },
+    { label: "Offers", value: offers, tone: offers > 0 ? "text-success" : undefined },
+  ];
+
   return (
-    <div ref={containerRef} className="min-h-screen bg-background pt-24 pb-20 px-4 sm:px-6 lg:px-8">
+    <div ref={containerRef} className="min-h-screen bg-background pt-20 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
 
         {/* Header */}
-        <div className="dash-header mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
+        <div className="dash-header mb-5">
+          <h1 className="text-2xl font-bold tracking-[-0.02em]">
             My Applications
           </h1>
-          <p className="text-muted mt-1">
+          <p className="text-muted mt-1 text-sm">
             Hey {userName} — here&apos;s where all your applications stand.
           </p>
+        </div>
+
+        {/* Stat tiles — the shape of the search, before the list itself */}
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {seekerStats.map((s) => (
+            <div key={s.label} className="rounded-lg border border-border bg-card p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">{s.label}</p>
+              <p className={`mt-1 text-2xl font-bold ${s.tone ?? "text-foreground"}`}>{s.value}</p>
+            </div>
+          ))}
         </div>
 
         {/* Nav links */}
@@ -659,8 +684,8 @@ export default function DashboardPage() {
             <p className="text-sm text-muted mb-5">
               {applications.length} application{applications.length !== 1 ? "s" : ""}
               {" "}· stages update in real time
-              <span className="inline-flex items-center gap-1 ml-2 text-emerald-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="inline-flex items-center gap-1 ml-2 text-success">
+                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
                 Live
               </span>
             </p>
@@ -685,10 +710,10 @@ export default function DashboardPage() {
 
         {/* Stage change toast */}
         {toast && (
-          <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-gray-900 border border-white/10 px-5 py-3.5 shadow-2xl max-w-sm">
-            <p className="text-xs text-gray-400 mb-0.5">Application status updated</p>
+          <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-card border border-border px-5 py-3.5 shadow-2xl max-w-sm">
+            <p className="text-xs text-muted mb-0.5">Application status updated</p>
             <p className="text-sm font-medium text-white">{toast.message}</p>
-            <p className="text-xs text-emerald-400 mt-0.5">→ {toast.stage}</p>
+            <p className="text-xs text-success mt-0.5">→ {toast.stage}</p>
           </div>
         )}
       </div>
