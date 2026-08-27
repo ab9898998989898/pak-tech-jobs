@@ -41,6 +41,9 @@ interface AdminJob {
   salaryMin: number;
   salaryMax: number;
   skills: string[];
+  isPremium: boolean;
+  isFeatured: boolean;
+  featuredUntil: string | null;
   recruiter: { id: string; name: string; companyName: string | null; email: string };
   _count: { applications: number };
 }
@@ -381,18 +384,99 @@ function SeekersTab({ users }: { users: AdminUser[] }) {
 
 // ─── Job Posts Tab ────────────────────────────────────────────────────────────
 
-function JobsTab({ jobs }: { jobs: AdminJob[] }) {
+/** Mirrors isPromotionActive() in lib/promotedListings.ts. */
+function isPromoted(j: AdminJob): boolean {
+  if (!j.isFeatured) return false;
+  if (!j.featuredUntil) return true;
+  return new Date(j.featuredUntil).getTime() > Date.now();
+}
+
+function promotionLabel(j: AdminJob): string {
+  if (!isPromoted(j)) return "—";
+  if (!j.featuredUntil) return "No expiry";
+  const days = Math.ceil((new Date(j.featuredUntil).getTime() - Date.now()) / 86400000);
+  return days === 1 ? "1 day left" : `${days} days left`;
+}
+
+function JobsTab({ jobs, setJobs }: {
+  jobs: AdminJob[];
+  setJobs: React.Dispatch<React.SetStateAction<AdminJob[]>>;
+}) {
   const [search, setSearch] = useState("");
+  const [promotedOnly, setPromotedOnly] = useState(false);
+  const [days, setDays] = useState(7);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
+
   const filtered = jobs.filter(j =>
-    j.title.toLowerCase().includes(search.toLowerCase()) ||
-    j.city.toLowerCase().includes(search.toLowerCase()) ||
-    (j.recruiter.companyName ?? "").toLowerCase().includes(search.toLowerCase())
+    (!promotedOnly || isPromoted(j)) &&
+    (j.title.toLowerCase().includes(search.toLowerCase()) ||
+     j.city.toLowerCase().includes(search.toLowerCase()) ||
+     (j.recruiter.companyName ?? "").toLowerCase().includes(search.toLowerCase()))
   );
+
+  const promotedCount = jobs.filter(isPromoted).length;
+
+  async function togglePromotion(job: AdminJob) {
+    setBusyId(job.id);
+    setErrorMsg("");
+    const promoting = !isPromoted(job);
+    try {
+      const res = promoting
+        ? await fetch("/api/featured-jobs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jobPostId: job.id, days }),
+          })
+        : await fetch(`/api/featured-jobs?jobPostId=${encodeURIComponent(job.id)}`, {
+            method: "DELETE",
+          });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErrorMsg(data.error ?? "Could not update promotion");
+        return;
+      }
+      setJobs(prev => prev.map(j =>
+        j.id === job.id
+          ? { ...j, isFeatured: data.isFeatured, featuredUntil: data.featuredUntil }
+          : j
+      ));
+    } catch {
+      setErrorMsg("Network error");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div>
-      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs…"
-        className="mb-4 w-full max-w-sm px-3 py-2 rounded-lg border border-gray-700 bg-gray-800 text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs…"
+          className="w-full max-w-sm px-3 py-2 rounded-lg border border-gray-700 bg-gray-800 text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
+
+        <label className="flex items-center gap-2 text-sm text-gray-400">
+          <input type="checkbox" checked={promotedOnly} onChange={e => setPromotedOnly(e.target.checked)}
+            className="rounded border-gray-700 bg-gray-800 text-emerald-500 focus:ring-emerald-500/40" />
+          Promoted only ({promotedCount})
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-gray-400 ml-auto">
+          Promote for
+          <select value={days} onChange={e => setDays(Number(e.target.value))}
+            className="px-2 py-1 rounded-lg border border-gray-700 bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            <option value={7}>7 days</option>
+            <option value={14}>14 days</option>
+            <option value={30}>30 days</option>
+            <option value={90}>90 days</option>
+          </select>
+        </label>
+      </div>
+
+      {errorMsg && (
+        <p className="mb-3 text-sm text-red-400">{errorMsg}</p>
+      )}
+
       <div className="overflow-x-auto rounded-xl border border-gray-700">
         <table className="w-full text-sm">
           <thead className="bg-gray-800 text-gray-400 text-xs uppercase tracking-wider">
@@ -404,30 +488,53 @@ function JobsTab({ jobs }: { jobs: AdminJob[] }) {
               <th className="px-4 py-3 text-left">Salary</th>
               <th className="px-4 py-3 text-left">Apps</th>
               <th className="px-4 py-3 text-left">Status</th>
+              <th className="px-4 py-3 text-left">Promoted</th>
               <th className="px-4 py-3 text-left">Posted</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
             {filtered.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-gray-500">No jobs found</td></tr>
-            ) : filtered.map(j => (
-              <tr key={j.id} className="hover:bg-gray-800/50 transition-colors">
-                <td className="px-4 py-3 font-medium text-white max-w-[200px] truncate">{j.title}</td>
-                <td className="px-4 py-3 text-gray-400">{j.recruiter.companyName ?? j.recruiter.name}</td>
-                <td className="px-4 py-3 text-gray-400">{j.city}</td>
-                <td className="px-4 py-3 text-gray-400">{JOB_TYPE_LABEL[j.jobType] ?? j.jobType}</td>
-                <td className="px-4 py-3 text-gray-400">PKR {fmtSalary(j.salaryMin)}–{fmtSalary(j.salaryMax)}</td>
-                <td className="px-4 py-3 text-gray-400">{j._count.applications}</td>
-                <td className="px-4 py-3">
-                  {j.isClosed
-                    ? <span className="text-xs bg-gray-500/10 text-gray-400 px-2 py-0.5 rounded-full">Closed</span>
-                    : j.isActive
-                      ? <span className="text-xs bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full">Active</span>
-                      : <span className="text-xs bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full">Inactive</span>}
-                </td>
-                <td className="px-4 py-3 text-gray-400">{fmt(j.createdAt)}</td>
-              </tr>
-            ))}
+              <tr><td colSpan={10} className="px-4 py-10 text-center text-gray-500">No jobs found</td></tr>
+            ) : filtered.map(j => {
+              const promoted = isPromoted(j);
+              return (
+                <tr key={j.id} className={`transition-colors ${promoted ? "bg-emerald-500/5 hover:bg-emerald-500/10" : "hover:bg-gray-800/50"}`}>
+                  <td className="px-4 py-3 font-medium text-white max-w-[200px] truncate">{j.title}</td>
+                  <td className="px-4 py-3 text-gray-400">{j.recruiter.companyName ?? j.recruiter.name}</td>
+                  <td className="px-4 py-3 text-gray-400">{j.city}</td>
+                  <td className="px-4 py-3 text-gray-400">{JOB_TYPE_LABEL[j.jobType] ?? j.jobType}</td>
+                  <td className="px-4 py-3 text-gray-400">PKR {fmtSalary(j.salaryMin)}–{fmtSalary(j.salaryMax)}</td>
+                  <td className="px-4 py-3 text-gray-400">{j._count.applications}</td>
+                  <td className="px-4 py-3">
+                    {j.isClosed
+                      ? <span className="text-xs bg-gray-500/10 text-gray-400 px-2 py-0.5 rounded-full">Closed</span>
+                      : j.isActive
+                        ? <span className="text-xs bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full">Active</span>
+                        : <span className="text-xs bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full">Inactive</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {promoted
+                      ? <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">★ {promotionLabel(j)}</span>
+                      : <span className="text-gray-600">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400">{fmt(j.createdAt)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => togglePromotion(j)}
+                      disabled={busyId === j.id}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-50 ${
+                        promoted
+                          ? "border border-gray-700 text-gray-400 hover:text-white"
+                          : "bg-emerald-500 text-white hover:bg-emerald-600"
+                      }`}
+                    >
+                      {busyId === j.id ? "…" : promoted ? "Un-promote" : "Promote"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -869,7 +976,7 @@ export default function AdminPage() {
             {activeTab === "pending" && <PendingTab recruiters={pending} setRecruiters={setPending} onApprove={handleApprove} />}
             {activeTab === "recruiters" && <RecruitersTab users={users} setUsers={setUsers} />}
             {activeTab === "seekers" && <SeekersTab users={users} />}
-            {activeTab === "jobs" && <JobsTab jobs={jobs} />}
+            {activeTab === "jobs" && <JobsTab jobs={jobs} setJobs={setJobs} />}
             {activeTab === "enterprise" && <EnterpriseTab />}
             {activeTab === "emails" && <EmailsTab />}
           </>

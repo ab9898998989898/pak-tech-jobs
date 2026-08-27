@@ -22,6 +22,9 @@ export async function GET() {
       salaryMin: true,
       salaryMax: true,
       skills: true,
+      isPremium: true,
+      isFeatured: true,
+      featuredUntil: true,
       recruiter: {
         select: { id: true, name: true, companyName: true, email: true },
       },

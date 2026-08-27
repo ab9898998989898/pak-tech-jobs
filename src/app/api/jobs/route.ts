@@ -6,6 +6,7 @@ import { requireVerifiedRecruiter } from "@/lib/requireVerifiedRecruiter";
 import { broadcast } from "@/lib/socketio";
 import { getCached, setCached, invalidateCache } from "@/lib/cache";
 import { rateLimitByUser, RATE_LIMITS } from "@/lib/rateLimit";
+import { sortJobsByPromotion } from "@/lib/promotedListings";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -96,7 +97,7 @@ export async function GET(req: NextRequest) {
   if (cached) return NextResponse.json(cached);
 
   try {
-    const jobs = await prisma.jobPost.findMany({
+    const rows = await prisma.jobPost.findMany({
       where,
       orderBy: [{ isPremium: "desc" }, { createdAt: "desc" }],
       select: {
@@ -114,6 +115,8 @@ export async function GET(req: NextRequest) {
         createdAt: true,
         applyUrl: true,
         isPremium: true,
+        isFeatured: true,
+        featuredUntil: true,
         recruiter: {
           select: {
             id: true,
@@ -127,6 +130,11 @@ export async function GET(req: NextRequest) {
         },
       },
     });
+
+    // Promoted listings rank above everything else. Applied here rather than in
+    // the SQL ORDER BY because a promotion whose featuredUntil has passed must
+    // stop ranking immediately, not at the next nightly expiry cron.
+    const jobs = sortJobsByPromotion(rows, new Date());
 
     await setCached(cacheKey, jobs, 120);
     return NextResponse.json(jobs);
