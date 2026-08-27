@@ -55,11 +55,11 @@ export function stageChangeEmail(opts: {
   const headline = stageLabels[opts.newStage] || "Application status updated";
   return `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-      <h2 style="color:#10b981">${headline}</h2>
+      <h2 style="color:#0a66c2">${headline}</h2>
       <p>Hi ${opts.applicantName},</p>
       <p>Your application for <strong>${opts.jobTitle}</strong> at <strong>${opts.company}</strong> has been updated.</p>
       <p>New status: <strong>${opts.newStage}</strong></p>
-      <a href="${process.env.NEXTAUTH_URL}/dashboard" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#10b981;color:white;border-radius:8px;text-decoration:none">View Application</a>
+      <a href="${process.env.NEXTAUTH_URL}/dashboard" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#0a66c2;color:white;border-radius:8px;text-decoration:none">View Application</a>
       <p style="margin-top:24px;color:#6b7280;font-size:12px">PakTechJobs · Pakistan's #1 Tech Job Board</p>
     </div>
   `;
@@ -74,12 +74,12 @@ export function interviewInviteEmail(opts: {
   const slotList = opts.slots.map(s => `<li>${new Date(s).toLocaleString()}</li>`).join("");
   return `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-      <h2 style="color:#10b981">Interview Invitation 🎯</h2>
+      <h2 style="color:#0a66c2">Interview Invitation 🎯</h2>
       <p>Hi ${opts.applicantName},</p>
       <p>You've been invited to interview for <strong>${opts.jobTitle}</strong> at <strong>${opts.company}</strong>.</p>
       <p>Please select one of the following time slots:</p>
       <ul>${slotList}</ul>
-      <a href="${process.env.NEXTAUTH_URL}/dashboard/interviews" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#10b981;color:white;border-radius:8px;text-decoration:none">Select Time Slot</a>
+      <a href="${process.env.NEXTAUTH_URL}/dashboard/interviews" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#0a66c2;color:white;border-radius:8px;text-decoration:none">Select Time Slot</a>
       <p style="margin-top:24px;color:#6b7280;font-size:12px">PakTechJobs · Pakistan's #1 Tech Job Board</p>
     </div>
   `;

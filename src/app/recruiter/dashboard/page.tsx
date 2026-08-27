@@ -65,20 +65,22 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
   EXPIRED: "Expired",
 };
 
+// Low-opacity tints rather than fixed dark values, so each stage reads the
+// same way on the light and dark grounds.
 const STAGE_COLORS: Record<string, string> = {
-  APPLIED: "border-gray-500/40 bg-gray-900/40",
-  SEEN: "border-blue-500/40 bg-blue-950/20",
-  SHORTLISTED: "border-purple-500/40 bg-purple-950/20",
-  INTERVIEW: "border-emerald-500/40 bg-emerald-950/20",
-  OFFER: "border-amber-500/40 bg-amber-950/20",
+  APPLIED: "border-border bg-surface",
+  SEEN: "border-sky-500/30 bg-sky-500/[0.06]",
+  SHORTLISTED: "border-purple-500/30 bg-purple-500/[0.06]",
+  INTERVIEW: "border-emerald-500/30 bg-emerald-500/[0.06]",
+  OFFER: "border-amber-500/30 bg-amber-500/[0.06]",
 };
 
 const STAGE_HEADER_COLORS: Record<string, string> = {
-  APPLIED: "text-gray-400 bg-gray-500/10",
-  SEEN: "text-blue-400 bg-blue-500/10",
-  SHORTLISTED: "text-purple-400 bg-purple-500/10",
-  INTERVIEW: "text-emerald-400 bg-emerald-500/10",
-  OFFER: "text-amber-400 bg-amber-500/10",
+  APPLIED: "text-muted bg-surface",
+  SEEN: "text-sky-700 dark:text-sky-400 bg-sky-500/10",
+  SHORTLISTED: "text-purple-700 dark:text-purple-400 bg-purple-500/10",
+  INTERVIEW: "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10",
+  OFFER: "text-amber-700 dark:text-amber-400 bg-amber-500/10",
 };
 
 const REJECTION_REASON_LABELS: Record<RejectionReason, string> = {
@@ -126,18 +128,18 @@ function RejectionModal({ onConfirm, onCancel, loading }: RejectionModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-gray-900 p-6 shadow-2xl">
-        <h2 className="mb-4 text-lg font-semibold text-white">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">
           Reject Application
         </h2>
 
-        <label className="mb-1 block text-sm text-gray-400">
+        <label className="mb-1 block text-sm text-muted">
           Rejection Reason <span className="text-red-400">*</span>
         </label>
         <select
           value={reason}
           onChange={(e) => setReason(e.target.value as RejectionReason)}
-          className="mb-4 w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+          className="mb-4 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
         >
           <option value="">Select a reason…</option>
           {REJECTION_REASONS.map((r) => (
@@ -147,7 +149,7 @@ function RejectionModal({ onConfirm, onCancel, loading }: RejectionModalProps) {
           ))}
         </select>
 
-        <label className="mb-1 block text-sm text-gray-400">
+        <label className="mb-1 block text-sm text-muted">
           Notes (optional)
         </label>
         <textarea
@@ -155,14 +157,14 @@ function RejectionModal({ onConfirm, onCancel, loading }: RejectionModalProps) {
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
           placeholder="Add any additional context for the applicant…"
-          className="mb-6 w-full resize-none rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none"
+          className="mb-6 w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder-muted focus:border-primary focus:outline-none"
         />
 
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
             disabled={loading}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-300 hover:bg-white/5 disabled:opacity-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-surface disabled:opacity-50"
           >
             Cancel
           </button>
@@ -197,8 +199,8 @@ function ApplicationCard({ app, selected, onToggleSelect, onDragStart, onCardCli
       onClick={() => onCardClick(app.id)}
       className={`cursor-grab rounded-lg border p-3 transition-all active:cursor-grabbing ${
         selected
-          ? "border-emerald-500/60 bg-emerald-950/30"
-          : "border-white/8 bg-white/4 hover:border-white/15 hover:bg-white/6"
+          ? "border-primary/60 bg-primary/10"
+          : "border-border bg-card hover:border-primary/40 hover:bg-surface"
       }`}
     >
       <div className="mb-2 flex items-start gap-2">
@@ -207,18 +209,18 @@ function ApplicationCard({ app, selected, onToggleSelect, onDragStart, onCardCli
           checked={selected}
           onChange={() => onToggleSelect(app.id)}
           onClick={(e) => e.stopPropagation()}
-          className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 accent-emerald-500"
+          className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 accent-primary"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-white">
+          <p className="truncate text-sm font-medium text-foreground">
             {app.applicant.name}
           </p>
-          <p className="truncate text-xs text-gray-400">{app.jobPost.title}</p>
+          <p className="truncate text-xs text-muted">{app.jobPost.title}</p>
         </div>
       </div>
 
       {app.applicant.experienceLevel && (
-        <span className="mb-2 inline-block rounded-full bg-gray-700/50 px-2 py-0.5 text-xs text-gray-300">
+        <span className="mb-2 inline-block rounded-full bg-surface px-2 py-0.5 text-xs text-foreground">
           {app.applicant.experienceLevel}
         </span>
       )}
@@ -228,20 +230,20 @@ function ApplicationCard({ app, selected, onToggleSelect, onDragStart, onCardCli
           {app.applicant.skills.slice(0, 3).map((skill) => (
             <span
               key={skill}
-              className="rounded-full bg-emerald-900/30 px-2 py-0.5 text-xs text-emerald-400"
+              className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary"
             >
               {skill}
             </span>
           ))}
           {app.applicant.skills.length > 3 && (
-            <span className="rounded-full bg-gray-700/50 px-2 py-0.5 text-xs text-gray-400">
+            <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted">
               +{app.applicant.skills.length - 3}
             </span>
           )}
         </div>
       )}
 
-      <p className="text-xs text-gray-500">{timeAgo(app.submittedAt)}</p>
+      <p className="text-xs text-muted">{timeAgo(app.submittedAt)}</p>
     </div>
   );
 }
@@ -277,7 +279,7 @@ function KanbanColumn({
     <div
       className={`flex min-h-[400px] w-64 flex-shrink-0 flex-col rounded-xl border transition-all ${
         STAGE_COLORS[stage]
-      } ${isOver ? "ring-2 ring-emerald-500/50" : ""}`}
+      } ${isOver ? "ring-2 ring-primary/50" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         setDragOverStage(stage);
@@ -301,7 +303,7 @@ function KanbanColumn({
       {/* Cards */}
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2 webkit-removed">
         {apps.length === 0 ? (
-          <p className="mt-4 text-center text-xs text-gray-600">No applications</p>
+          <p className="mt-4 text-center text-xs text-muted">No applications</p>
         ) : (
           apps.map((app) => (
             <ApplicationCard
@@ -590,15 +592,15 @@ export default function RecruiterDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-950">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-red-400">{error}</p>
       </div>
     );
@@ -606,41 +608,67 @@ export default function RecruiterDashboardPage() {
 
   const selectedCount = selectedIds.size;
 
+  // "Needs review" is the count still sitting untouched at APPLIED — the one
+  // number a recruiter should act on, so it is highlighted when non-zero.
+  const countAt = (stage: PipelineStage) =>
+    applications.filter((a) => a.stage === stage).length;
+
+  const needsReview = countAt("APPLIED");
+  const statTiles: { label: string; value: number; tone?: string }[] = [
+    {
+      label: "Active",
+      value: applications.filter((a) => KANBAN_STAGES.includes(a.stage)).length,
+    },
+    { label: "Needs review", value: needsReview, tone: needsReview > 0 ? "text-primary" : undefined },
+    { label: "Shortlisted", value: countAt("SHORTLISTED") },
+    { label: "Interviewing", value: countAt("INTERVIEW") },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-950 px-4 sm:px-6 py-6 sm:py-8">
+    <div className="min-h-screen bg-background px-4 sm:px-6 py-6 sm:py-8">
       {/* Dedicated Support Widget (Enterprise only) */}
       <DedicatedSupportWidget tier={userTier} accountManagerName={accountManagerName} />
 
       {/* Header */}
       <div className="mb-6">
         {/* Top row: title + primary action */}
-        <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Pipeline</h1>
-            <p className="mt-0.5 text-xs sm:text-sm text-gray-400">
-              {applications.filter((a) => KANBAN_STAGES.includes(a.stage)).length} active
+            <h1 className="text-2xl font-bold tracking-[-0.02em] text-foreground">Pipeline</h1>
+            <p className="mt-0.5 text-sm text-muted">
+              Drag a candidate between columns to move them forward.
             </p>
           </div>
           <Link
             href="/recruiter/jobs/new"
-            className="shrink-0 rounded-lg bg-emerald-600 px-3 sm:px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors"
+            className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
           >
-            + Post Job
+            Post a job
           </Link>
+        </div>
+
+        {/* Stat tiles — the pipeline at a glance, before the board itself */}
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {statTiles.map((s) => (
+            <div key={s.label} className="rounded-lg border border-border bg-card p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">{s.label}</p>
+              <p className={`mt-1 text-2xl font-bold ${s.tone ?? "text-foreground"}`}>{s.value}</p>
+            </div>
+          ))}
         </div>
 
         {/* Nav links row — scrollable on mobile */}
         <div className="flex gap-2 overflow-x-auto webkit-removed pb-1">
           <Link href="/recruiter/jobs"
-            className="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/5 transition-colors">
+            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface transition-colors">
             My Jobs
           </Link>
           <Link href="/recruiter/analytics"
-            className="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/5 transition-colors">
+            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface transition-colors">
             Analytics
           </Link>
           <Link href="/recruiter/ai-tools"
-            className="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/5 transition-colors">
+            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface transition-colors">
             🤖 AI Tools
           </Link>
         </div>
@@ -652,26 +680,26 @@ export default function RecruiterDashboardPage() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search by name or skill…"
-            className="flex-1 rounded-lg border border-white/10 bg-gray-900 px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none"
+            className="flex-1 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder-muted focus:border-primary focus:outline-none"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="text-xs text-gray-500 hover:text-gray-300">Clear</button>
+            <button onClick={() => setSearchQuery("")} className="text-xs text-muted hover:text-foreground">Clear</button>
           )}
         </div>
 
         {/* Bulk action bar */}
         {selectedCount > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-gray-900 px-3 sm:px-4 py-2.5">
-            <span className="text-sm text-gray-300 mr-1">{selectedCount} selected</span>
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 sm:px-4 py-2.5">
+            <span className="text-sm text-foreground mr-1">{selectedCount} selected</span>
             <button onClick={handleBulkAdvance}
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-dark">
               Advance
             </button>
             <button onClick={() => setRejectionModal({ mode: "bulk" })}
               className="rounded-lg bg-red-600/80 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
               Reject
             </button>
-            <button onClick={clearSelection} className="text-xs text-gray-500 hover:text-gray-300 ml-auto">
+            <button onClick={clearSelection} className="text-xs text-muted hover:text-foreground ml-auto">
               Clear
             </button>
           </div>
@@ -742,7 +770,7 @@ export default function RecruiterDashboardPage() {
               return (
                 <span
                   key={i}
-                  className="block rounded-full bg-emerald-400 transition-all duration-300"
+                  className="block rounded-full bg-primary transition-all duration-300"
                   style={{
                     width: size,
                     height: size,

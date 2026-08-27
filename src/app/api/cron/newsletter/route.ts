@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
       const jobListHtml = jobs.map(job => `
         <tr>
           <td style="padding:12px 0;border-bottom:1px solid #e5e7eb">
-            <a href="https://www.paktechjobs.com/jobs/${job.id}" style="font-weight:600;color:#10b981;text-decoration:none">${job.title}</a><br>
+            <a href="https://www.paktechjobs.com/jobs/${job.id}" style="font-weight:600;color:#0a66c2;text-decoration:none">${job.title}</a><br>
             <span style="color:#6b7280;font-size:13px">${job.recruiter.companyName || job.recruiter.name} &middot; ${job.city} &middot; PKR ${job.salaryMin.toLocaleString()}&ndash;${job.salaryMax.toLocaleString()}</span>
           </td>
         </tr>
@@ -133,18 +133,18 @@ export async function GET(req: NextRequest) {
 
       const html = `
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-          <h2 style="color:#10b981">${jobs.length} new job${jobs.length > 1 ? "s" : ""} matching your alert</h2>
+          <h2 style="color:#0a66c2">${jobs.length} new job${jobs.length > 1 ? "s" : ""} matching your alert</h2>
           <p>Hi ${alert.user.name},</p>
           <p>Here are the latest jobs matching <strong>${alert.keywords.join(", ")}</strong>:</p>
           <table style="width:100%;border-collapse:collapse">
             ${jobListHtml}
           </table>
           <a href="https://www.paktechjobs.com/jobs?q=${encodeURIComponent(alert.keywords[0] ?? "")}"
-             style="display:inline-block;margin-top:20px;padding:12px 24px;background:#10b981;color:white;border-radius:8px;text-decoration:none;font-weight:600">
+             style="display:inline-block;margin-top:20px;padding:12px 24px;background:#0a66c2;color:white;border-radius:8px;text-decoration:none;font-weight:600">
             View All Matching Jobs
           </a>
           <p style="margin-top:16px;color:#6b7280;font-size:12px">
-            <a href="https://www.paktechjobs.com/dashboard/job-alerts" style="color:#10b981">Manage your alerts</a>
+            <a href="https://www.paktechjobs.com/dashboard/job-alerts" style="color:#0a66c2">Manage your alerts</a>
           </p>
           ${emailFooter(token)}
         </div>

@@ -58,6 +58,26 @@ interface EnterpriseEmployer {
   hasCvAccess: boolean;
 }
 
+interface PromotionRequestRow {
+  id: string;
+  status: "PENDING" | "APPROVED" | "DECLINED";
+  message: string | null;
+  createdAt: string;
+  jobPost: {
+    id: string;
+    title: string;
+    city: string;
+    jobType: string;
+    experienceLevel: string;
+    salaryMin: number;
+    salaryMax: number;
+    isFeatured: boolean;
+    featuredUntil: string | null;
+    _count: { applications: number };
+  };
+  recruiter: { id: string; name: string; email: string; companyName: string | null };
+}
+
 interface EmailLogRow {
   id: string;
   recipient: string;
@@ -398,17 +418,29 @@ function promotionLabel(j: AdminJob): string {
   return days === 1 ? "1 day left" : `${days} days left`;
 }
 
-function JobsTab({ jobs, setJobs }: {
+function JobsTab({ jobs, setJobs, requests, setRequests, focusJobId }: {
   jobs: AdminJob[];
   setJobs: React.Dispatch<React.SetStateAction<AdminJob[]>>;
+  requests: PromotionRequestRow[];
+  setRequests: React.Dispatch<React.SetStateAction<PromotionRequestRow[]>>;
+  focusJobId: string | null;
 }) {
   const [search, setSearch] = useState("");
   const [promotedOnly, setPromotedOnly] = useState(false);
   const [days, setDays] = useState(7);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [declineNote, setDeclineNote] = useState("");
 
-  const filtered = jobs.filter(j =>
+  // Arriving from the "Review and promote" link in the admin email: filter to
+  // that one job so it cannot be missed in a long list.
+  const [focused, setFocused] = useState<string | null>(focusJobId);
+  useEffect(() => setFocused(focusJobId), [focusJobId]);
+
+  const focusedJob = focused ? jobs.find(j => j.id === focused) : undefined;
+
+  const filtered = (focused ? jobs.filter(j => j.id === focused) : jobs).filter(j =>
     (!promotedOnly || isPromoted(j)) &&
     (j.title.toLowerCase().includes(search.toLowerCase()) ||
      j.city.toLowerCase().includes(search.toLowerCase()) ||
@@ -416,6 +448,41 @@ function JobsTab({ jobs, setJobs }: {
   );
 
   const promotedCount = jobs.filter(isPromoted).length;
+  const pending = requests.filter(r => r.status === "PENDING");
+
+  async function reviewRequest(req: PromotionRequestRow, action: "approve" | "decline") {
+    setReviewingId(req.id);
+    setErrorMsg("");
+    try {
+      const res = await fetch(`/api/promotion-requests/${req.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          ...(action === "approve" ? { days } : {}),
+          ...(action === "decline" && declineNote.trim() ? { note: declineNote.trim() } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErrorMsg(data.error ?? "Could not update the request");
+        return;
+      }
+      setRequests(prev => prev.filter(r => r.id !== req.id));
+      if (action === "approve" && data.jobPost) {
+        setJobs(prev => prev.map(j =>
+          j.id === data.jobPost.id
+            ? { ...j, isFeatured: data.jobPost.isFeatured, featuredUntil: data.jobPost.featuredUntil }
+            : j
+        ));
+      }
+      setDeclineNote("");
+    } catch {
+      setErrorMsg("Network error");
+    } finally {
+      setReviewingId(null);
+    }
+  }
 
   async function togglePromotion(job: AdminJob) {
     setBusyId(job.id);
@@ -451,6 +518,86 @@ function JobsTab({ jobs, setJobs }: {
 
   return (
     <div>
+      {/* Pending promotion requests — the queue an admin should clear first */}
+      {pending.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-400">
+            ★ {pending.length} promotion request{pending.length === 1 ? "" : "s"} awaiting review
+          </h3>
+
+          <div className="space-y-2">
+            {pending.map(req => (
+              <div key={req.id} className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <button
+                      onClick={() => setFocused(req.jobPost.id)}
+                      className="text-left text-sm font-semibold text-white hover:text-emerald-400 hover:underline"
+                      title="Show only this job below"
+                    >
+                      {req.jobPost.title}
+                    </button>
+                    <p className="mt-0.5 text-xs text-gray-400">
+                      {req.recruiter.companyName ?? req.recruiter.name} · {req.jobPost.city} ·{" "}
+                      {JOB_TYPE_LABEL[req.jobPost.jobType] ?? req.jobPost.jobType} ·{" "}
+                      {EXP_LABEL[req.jobPost.experienceLevel] ?? req.jobPost.experienceLevel}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      PKR {fmtSalary(req.jobPost.salaryMin)}–{fmtSalary(req.jobPost.salaryMax)} ·{" "}
+                      {req.jobPost._count.applications} application
+                      {req.jobPost._count.applications === 1 ? "" : "s"} · asked {fmt(req.createdAt)}
+                    </p>
+                    {req.message && (
+                      <p className="mt-1.5 border-l-2 border-gray-700 pl-2 text-xs italic text-gray-400">
+                        “{req.message}”
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      onClick={() => reviewRequest(req, "approve")}
+                      disabled={reviewingId === req.id}
+                      className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+                    >
+                      {reviewingId === req.id ? "…" : `Approve · ${days}d`}
+                    </button>
+                    <button
+                      onClick={() => reviewRequest(req, "decline")}
+                      disabled={reviewingId === req.id}
+                      className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <input
+            value={declineNote}
+            onChange={e => setDeclineNote(e.target.value)}
+            placeholder="Optional reason, sent to the recruiter when declining…"
+            className="mt-3 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+          />
+        </div>
+      )}
+
+      {focused && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2">
+          <span className="text-sm text-emerald-400">
+            Showing one job{focusedJob ? `: ${focusedJob.title}` : ""}
+          </span>
+          <button
+            onClick={() => setFocused(null)}
+            className="ml-auto text-xs text-gray-400 hover:text-white"
+          >
+            Show all jobs
+          </button>
+        </div>
+      )}
+
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs…"
           className="w-full max-w-sm px-3 py-2 rounded-lg border border-gray-700 bg-gray-800 text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
@@ -914,6 +1061,9 @@ export default function AdminPage() {
   const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [jobsLoading, setJobsLoading] = useState(true);
 
+  const [requests, setRequests] = useState<PromotionRequestRow[]>([]);
+  const [focusJobId, setFocusJobId] = useState<string | null>(null);
+
   useEffect(() => {
     fetch("/api/admin/recruiters/pending")
       .then(r => r.json()).then(setPending).catch(() => {}).finally(() => setPendingLoading(false));
@@ -921,6 +1071,22 @@ export default function AdminPage() {
       .then(r => r.json()).then(setUsers).catch(() => {}).finally(() => setUsersLoading(false));
     fetch("/api/admin/jobs")
       .then(r => r.json()).then(setJobs).catch(() => {}).finally(() => setJobsLoading(false));
+    fetch("/api/promotion-requests?status=PENDING")
+      .then(r => r.json())
+      .then(d => setRequests(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  // Deep link from the admin notification email: /admin?tab=jobs&job=<id>
+  // lands on the Jobs tab with that listing isolated, ready to promote.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "jobs") setActiveTab("jobs");
+    const job = params.get("job");
+    if (job) {
+      setActiveTab("jobs");
+      setFocusJobId(job);
+    }
   }, []);
 
   function handleApprove(id: string) {
@@ -931,7 +1097,7 @@ export default function AdminPage() {
     { key: "pending", label: "Pending Approvals", badge: pendingLoading ? undefined : pending.length },
     { key: "recruiters", label: "Recruiters", badge: usersLoading ? undefined : users.filter(u => u.role === "RECRUITER").length },
     { key: "seekers", label: "Job Seekers", badge: usersLoading ? undefined : users.filter(u => u.role === "APPLICANT").length },
-    { key: "jobs", label: "Job Posts", badge: jobsLoading ? undefined : jobs.length },
+    { key: "jobs", label: "Job Posts", badge: requests.length > 0 ? requests.length : (jobsLoading ? undefined : jobs.length) },
     { key: "enterprise", label: "Enterprise" },
     { key: "emails", label: "Emails" },
   ];
@@ -976,7 +1142,15 @@ export default function AdminPage() {
             {activeTab === "pending" && <PendingTab recruiters={pending} setRecruiters={setPending} onApprove={handleApprove} />}
             {activeTab === "recruiters" && <RecruitersTab users={users} setUsers={setUsers} />}
             {activeTab === "seekers" && <SeekersTab users={users} />}
-            {activeTab === "jobs" && <JobsTab jobs={jobs} setJobs={setJobs} />}
+            {activeTab === "jobs" && (
+              <JobsTab
+                jobs={jobs}
+                setJobs={setJobs}
+                requests={requests}
+                setRequests={setRequests}
+                focusJobId={focusJobId}
+              />
+            )}
             {activeTab === "enterprise" && <EnterpriseTab />}
             {activeTab === "emails" && <EmailsTab />}
           </>

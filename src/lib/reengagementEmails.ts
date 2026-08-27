@@ -11,7 +11,7 @@ import { emailFooter } from "@/lib/emailPreferences";
 const SITE_URL =
   process.env.NEXTAUTH_URL?.replace(/\/$/, "") || "https://www.paktechjobs.com";
 
-const BRAND = "#10b981";
+const BRAND = "#0a66c2";
 
 /**
  * Job titles and company names are user-supplied and end up in someone else's

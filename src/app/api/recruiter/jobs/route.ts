@@ -29,6 +29,14 @@ export async function GET() {
       createdAt: true,
       category: true,
       skills: true,
+      isFeatured: true,
+      featuredUntil: true,
+      // Most recent request only — that is what drives the button state.
+      promotionRequests: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { id: true, status: true, createdAt: true, reviewNote: true },
+      },
     },
   });
 

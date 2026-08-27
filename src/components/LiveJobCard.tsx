@@ -27,24 +27,31 @@ export interface LiveJob {
   };
 }
 
-function ResponseRateBadge({ rate }: { rate: number }) {
-  if (rate >= 90) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-        ✓ {rate}% Highly Responsive
-      </span>
-    );
-  }
-  if (rate >= 70) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20">
-        ~ {rate}% Responsive
-      </span>
-    );
-  }
+/**
+ * Response rate rendered as a star mark plus a plain-language label.
+ *
+ * The rating language is deliberate: a percentage alone reads as a statistic,
+ * where stars read as a judgement a person can act on at a glance.
+ */
+function ResponseRate({ rate }: { rate: number }) {
+  const stars = Math.max(1, Math.round((rate / 100) * 5));
+  const tone =
+    rate >= 90
+      ? "text-success"
+      : rate >= 70
+      ? "text-accent"
+      : "text-muted";
+  const label = rate >= 90 ? "Highly responsive" : rate >= 70 ? "Responsive" : "Slow to respond";
+
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
-      ⚠ {rate}% Low Responsiveness
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-accent text-xs tracking-[0.08em]" aria-hidden="true">
+        {"★".repeat(stars)}
+        <span className="opacity-30">{"★".repeat(5 - stars)}</span>
+      </span>
+      <span className={`text-xs font-semibold ${tone}`}>
+        {rate}% {label}
+      </span>
     </span>
   );
 }
@@ -55,6 +62,17 @@ function formatJobType(jt: string) {
 
 function formatExperience(el: string) {
   return el.charAt(0) + el.slice(1).toLowerCase();
+}
+
+function timeAgo(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+  const months = Math.floor(days / 30);
+  return months <= 1 ? "1 month ago" : `${months} months ago`;
 }
 
 export default function LiveJobCard({ job }: { job: LiveJob }) {
@@ -68,140 +86,129 @@ export default function LiveJobCard({ job }: { job: LiveJob }) {
     !!job.isFeatured &&
     (!job.featuredUntil || new Date(job.featuredUntil).getTime() > Date.now());
 
+  const shell = isPromoted
+    ? "border-border border-l-[3px] border-l-accent bg-accent-soft dark:bg-card"
+    : "border-border bg-card";
+
   return (
-    <div
-      className={
-        isPromoted
-          ? "group relative flex flex-col p-6 rounded-2xl border-2 border-primary/40 bg-primary/[0.04] dark:bg-primary/[0.07] ring-1 ring-primary/10 shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/60"
-          : "group relative flex flex-col p-6 rounded-2xl border border-border dark:border-border-dark bg-card dark:bg-card-dark transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/50"
-      }
+    <article
+      className={`group relative flex flex-col rounded-lg border ${shell} p-5 transition-shadow duration-200 hover:shadow-[0_4px_16px_-4px_rgba(27,31,35,0.16)]`}
     >
-      {/* Top-right badges: Promoted, Premium and/or External */}
-      <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
-        {isPromoted && (
-          <span className="text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/30">
-            ★ Promoted
-          </span>
-        )}
-        {job.isPremium && (
-          <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-            ⭐ Premium
-          </span>
-        )}
-        {isAggregated && (
-          <span className="text-[10px] font-medium text-muted bg-surface dark:bg-surface-dark px-2 py-0.5 rounded-full border border-border dark:border-border-dark">
-            External
-          </span>
-        )}
-      </div>
-
-      {/* Header */}
-      <div className="flex items-start gap-4 mb-4">
-        <div className="w-11 h-11 flex-shrink-0 rounded-xl border border-border dark:border-border-dark bg-surface dark:bg-surface-dark flex items-center justify-center">
-          <span className="text-lg font-bold text-muted">{companyName.charAt(0)}</span>
-        </div>
-        <div className="flex-1 min-w-0 pr-16">
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
-              {isAggregated ? (
-                <a
-                  href={job.applyUrl!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="focus:outline-none hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {job.title}
-                </a>
-              ) : (
-                <Link href={`/jobs/${job.id}`} className="focus:outline-none">
-                  <span className="absolute inset-0" aria-hidden="true" />
-                  {job.title}
-                </Link>
-              )}
-            </h3>
-          </div>
-          <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-sm text-muted">
-            <span className="font-medium text-muted-foreground">
-              {companyName}
-              {job.recruiter.recruiterVerified && (
-                <span className="ml-1 text-blue-500" title="Verified Company">✓</span>
-              )}
+      {/* Status badges */}
+      {(isPromoted || job.isPremium || isAggregated) && (
+        <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+          {isPromoted && (
+            <span className="rounded-[3px] bg-accent px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-white">
+              ★ Promoted
             </span>
-            <span className="hidden sm:inline">•</span>
-            <span className={isRemote ? "text-emerald-500" : ""}>
-              {isRemote ? "🌍 Remote" : `📍 ${job.city}`}
+          )}
+          {job.isPremium && (
+            <span className="rounded-[3px] border border-accent/30 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.05em] text-accent">
+              Premium
             </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Meta */}
-      <div className="flex flex-wrap gap-3 text-sm mb-3">
-        <span className="flex items-center gap-1 text-foreground">
-          <span className="text-muted">💰</span>
-          <span className="font-medium">
-            PKR {job.salaryMin.toLocaleString()} – {job.salaryMax.toLocaleString()}
-          </span>
-        </span>
-        <span className="flex items-center gap-1 text-muted">
-          <span>⏳</span>
-          {formatExperience(job.experienceLevel)}
-        </span>
-        <span className="flex items-center gap-1 text-muted">
-          <span>💼</span>
-          {formatJobType(job.jobType)}
-        </span>
-      </div>
-
-      {/* Response Rate — only for recruiter-posted jobs */}
-      {!isAggregated && (
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <ResponseRateBadge rate={Math.round(job.recruiter.responseRate)} />
-          <span className="text-xs text-muted">
-            {job.recruiter.avgResponseTimeHours != null
-              ? `Avg. response: ${job.recruiter.avgResponseTimeHours}h`
-              : "Avg. response: N/A"}
-          </span>
+          )}
+          {isAggregated && (
+            <span className="rounded-[3px] border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.05em] text-muted">
+              External
+            </span>
+          )}
         </div>
       )}
 
-      {/* Skills */}
-      <div className="flex flex-wrap gap-2 mt-auto pt-4 border-t border-border dark:border-border-dark relative z-10">
+      <div className="flex items-start gap-3">
+        {/* Company mark */}
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-surface">
+          <span className="text-lg font-bold text-muted">{companyName.charAt(0)}</span>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-semibold leading-6 tracking-[-0.01em] text-primary">
+            {isAggregated ? (
+              <a
+                href={job.applyUrl!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline focus:outline-none focus-visible:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {job.title}
+              </a>
+            ) : (
+              <Link href={`/jobs/${job.id}`} className="focus:outline-none focus-visible:underline">
+                <span className="absolute inset-0" aria-hidden="true" />
+                {job.title}
+              </Link>
+            )}
+          </h3>
+
+          <p className="mt-0.5 text-sm font-medium text-foreground">
+            {companyName}
+            {job.recruiter.recruiterVerified && (
+              <span className="ml-1 text-primary" title="Verified employer">
+                ✓
+              </span>
+            )}
+          </p>
+
+          <p className="mt-0.5 text-xs text-muted">
+            {isRemote ? "Remote" : job.city} &middot; {formatJobType(job.jobType)} &middot;{" "}
+            {formatExperience(job.experienceLevel)}
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-3 text-sm font-semibold text-foreground">
+        PKR {job.salaryMin.toLocaleString()} &ndash; {job.salaryMax.toLocaleString()}
+      </p>
+
+      {/* Response rate — recruiter-posted jobs only; aggregated listings have no recruiter to rate */}
+      {!isAggregated && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <ResponseRate rate={Math.round(job.recruiter.responseRate)} />
+          {job.recruiter.avgResponseTimeHours != null && (
+            <span className="text-xs text-muted">
+              &middot; replies in ~{job.recruiter.avgResponseTimeHours}h
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
         {job.skills.slice(0, 4).map((skill) => (
           <span
             key={skill}
-            className="px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary"
+            className="rounded bg-surface px-2 py-0.5 text-xs font-medium text-muted"
           >
             {skill}
           </span>
         ))}
         {job.skills.length > 4 && (
-          <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-surface dark:bg-surface-dark text-muted">
-            +{job.skills.length - 4}
-          </span>
+          <span className="text-xs text-muted">+{job.skills.length - 4} more</span>
         )}
+      </div>
 
-        {/* Apply button — external for aggregated, internal for recruiter jobs */}
+      <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+        <span className="text-xs text-muted">{timeAgo(job.createdAt)}</span>
+
         {isAggregated ? (
           <a
             href={job.applyUrl!}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="ml-auto flex-shrink-0 px-4 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors"
+            className="relative z-10 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-dark"
           >
-            Apply Now →
+            Apply now
           </a>
         ) : (
           <Link
             href={`/jobs/${job.id}`}
-            className="ml-auto flex-shrink-0 px-4 py-1.5 rounded-lg border border-border dark:border-border-dark text-xs font-medium text-foreground hover:bg-surface dark:hover:bg-surface-dark transition-colors"
+            className="relative z-10 rounded-full border border-primary px-4 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary-light"
           >
-            View Job
+            View job
           </Link>
         )}
       </div>
-    </div>
+    </article>
   );
 }
