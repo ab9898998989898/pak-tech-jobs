@@ -46,14 +46,22 @@ export function promotionInvoiceSubject(opts: {
 export function promotionInvoiceEmail(opts: PromotionInvoiceOpts): string {
   const pay = paymentInstructions();
 
+  // A wallet registered to a different name carries its own title inline.
+  // Without it the payer reads the bank's account title as covering every
+  // method listed below it, and stops when the name does not match.
+  const wallet = (label: string, number: string, title: string | null) =>
+    title
+      ? `<p style="margin:4px 0;font-size:14px"><span style="color:#6b7280">${label}:</span> <strong>${escapeHtml(number)}</strong> <span style="color:#6b7280">(account title: ${escapeHtml(title)})</span></p>`
+      : payLine(label, number);
+
   const methods = pay.empty
     ? `<p style="margin:0;font-size:14px;color:#b45309">Payment details will follow in a separate message.</p>`
     : [
         pay.bankName ? payLine("Bank", pay.bankName) : "",
-        pay.accountTitle ? payLine("Account title", pay.accountTitle) : "",
+        pay.accountTitle ? payLine("Bank account title", pay.accountTitle) : "",
         pay.accountNumber ? payLine("Account / IBAN", pay.accountNumber) : "",
-        pay.easypaisa ? payLine("Easypaisa", pay.easypaisa) : "",
-        pay.jazzcash ? payLine("JazzCash", pay.jazzcash) : "",
+        pay.easypaisa ? wallet("Easypaisa", pay.easypaisa, pay.easypaisaTitle) : "",
+        pay.jazzcash ? wallet("JazzCash", pay.jazzcash, pay.jazzcashTitle) : "",
       ].join("");
 
   return shell(`

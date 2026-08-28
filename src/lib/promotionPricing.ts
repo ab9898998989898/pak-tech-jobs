@@ -60,7 +60,14 @@ export interface PaymentInstructions {
   accountTitle: string | null;
   accountNumber: string | null;
   easypaisa: string | null;
+  /**
+   * Account title for the wallet, when it differs from the bank account title.
+   * Mobile wallets are often registered to a different name, and a payer who
+   * sees one title above several methods will assume it covers all of them.
+   */
+  easypaisaTitle: string | null;
   jazzcash: string | null;
+  jazzcashTitle: string | null;
   /** True when nothing is configured — the admin must set the env vars. */
   empty: boolean;
 }
@@ -80,11 +87,19 @@ export function paymentInstructions(): PaymentInstructions {
     accountTitle: clean(process.env.PAYMENT_ACCOUNT_TITLE),
     accountNumber: clean(process.env.PAYMENT_ACCOUNT_NUMBER),
     easypaisa: clean(process.env.PAYMENT_EASYPAISA),
+    easypaisaTitle: clean(process.env.PAYMENT_EASYPAISA_TITLE),
     jazzcash: clean(process.env.PAYMENT_JAZZCASH),
+    jazzcashTitle: clean(process.env.PAYMENT_JAZZCASH_TITLE),
   };
 
   return {
     ...details,
-    empty: Object.values(details).every((v) => v === null),
+    // A title with no matching number is not a usable payment method, so the
+    // block only counts as populated when an actual destination is set.
+    empty:
+      details.bankName === null &&
+      details.accountNumber === null &&
+      details.easypaisa === null &&
+      details.jazzcash === null,
   };
 }

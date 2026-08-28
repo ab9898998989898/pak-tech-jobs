@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fc from "fast-check";
 import {
   PROMOTION_PACKAGES,
@@ -6,6 +6,7 @@ import {
   findPackage,
   formatPkr,
   generateInvoiceRef,
+  paymentInstructions,
   INVOICE_REF_SPACE,
 } from "@/lib/promotionPricing";
 import { validatePromotionDays, PROMOTION_MAX_DAYS } from "@/lib/promotedListings";
@@ -102,6 +103,70 @@ describe("generateInvoiceRef", () => {
   it("does not repeat across a realistic number of invoices", () => {
     const refs = new Set(Array.from({ length: 2000 }, generateInvoiceRef));
     expect(refs.size).toBe(2000);
+  });
+});
+
+describe("paymentInstructions", () => {
+  const KEYS = [
+    "PAYMENT_BANK_NAME",
+    "PAYMENT_ACCOUNT_TITLE",
+    "PAYMENT_ACCOUNT_NUMBER",
+    "PAYMENT_EASYPAISA",
+    "PAYMENT_EASYPAISA_TITLE",
+    "PAYMENT_JAZZCASH",
+    "PAYMENT_JAZZCASH_TITLE",
+  ] as const;
+
+  let saved: Record<string, string | undefined>;
+
+  beforeEach(() => {
+    saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
+    for (const k of KEYS) delete process.env[k];
+  });
+
+  afterEach(() => {
+    for (const k of KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
+
+  it("is empty when nothing is configured", () => {
+    expect(paymentInstructions().empty).toBe(true);
+  });
+
+  it("treats whitespace-only values as unset", () => {
+    process.env.PAYMENT_BANK_NAME = "   ";
+    const pay = paymentInstructions();
+    expect(pay.bankName).toBeNull();
+    expect(pay.empty).toBe(true);
+  });
+
+  it("is not empty once a real destination is set", () => {
+    process.env.PAYMENT_EASYPAISA = "0300 1234567";
+    expect(paymentInstructions().empty).toBe(false);
+  });
+
+  it("stays empty when only a title is set, with no destination", () => {
+    // A name with no account number is not something anyone can pay into, so
+    // the invoice should still say details will follow.
+    process.env.PAYMENT_ACCOUNT_TITLE = "Some Name";
+    expect(paymentInstructions().empty).toBe(true);
+  });
+
+  it("carries a wallet title distinct from the bank account title", () => {
+    process.env.PAYMENT_ACCOUNT_TITLE = "Bank Name Here";
+    process.env.PAYMENT_EASYPAISA = "0300 1234567";
+    process.env.PAYMENT_EASYPAISA_TITLE = "Different Wallet Name";
+
+    const pay = paymentInstructions();
+    expect(pay.accountTitle).toBe("Bank Name Here");
+    expect(pay.easypaisaTitle).toBe("Different Wallet Name");
+  });
+
+  it("leaves the wallet title null when the wallet uses the same name", () => {
+    process.env.PAYMENT_JAZZCASH = "0301 7654321";
+    expect(paymentInstructions().jazzcashTitle).toBeNull();
   });
 });
 
