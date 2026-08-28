@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { ExperienceLevel, JobType, VerificationStatus } from "@prisma/client";
+import {
+  notifyAdmins,
+  adminEmailShell,
+  adminTable,
+  adminRow,
+  adminCta,
+  escapeHtml,
+} from "@/lib/adminAlerts";
 
 // POST /api/salaries — Authenticated user submits a salary entry
 // Requirements: 10.2, 10.3, 10.4
@@ -93,6 +101,33 @@ export async function POST(req: NextRequest) {
         evidenceUrl: evidenceUrl ? (evidenceUrl as string).trim() : null,
       },
     });
+
+    // Only entries with evidence land in the admin review queue; unverified
+    // ones need no decision, so alerting on them would be noise.
+    if (verificationStatus === VerificationStatus.PENDING) {
+      await notifyAdmins({
+        type: "SALARY_SUBMITTED",
+        title: "Salary entry awaiting verification",
+        body: `${entry.roleTitle} in ${entry.city} — evidence submitted.`,
+        data: { salaryEntryId: entry.id },
+        emailSubject: `Salary entry to verify: ${entry.roleTitle} (${entry.city})`,
+        emailHtml: adminEmailShell(`
+          <h2 style="color:#0a66c2;margin-top:0">Salary entry awaiting verification</h2>
+          <p>Someone submitted a salary with supporting evidence, so it needs a
+             decision before it counts toward the public benchmarks.</p>
+          ${adminTable(
+            [
+              adminRow("Role", escapeHtml(entry.roleTitle)),
+              adminRow("City", escapeHtml(entry.city)),
+              adminRow("Level", escapeHtml(entry.experienceLevel)),
+              adminRow("Amount", `PKR ${entry.salaryAmount.toLocaleString("en-PK")}`),
+              adminRow("Type", escapeHtml(entry.employmentType)),
+            ].join("")
+          )}
+          ${adminCta("/admin", "Review in admin panel")}
+        `),
+      });
+    }
 
     return NextResponse.json(entry, { status: 201 });
   } catch (error) {

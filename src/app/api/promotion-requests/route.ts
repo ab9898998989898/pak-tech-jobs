@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { sendEmail } from "@/lib/email";
-import { broadcast, emitToUser } from "@/lib/socketio";
+import { broadcast } from "@/lib/socketio";
+import { notifyAdmins } from "@/lib/adminAlerts";
 import {
   promotionRequestEmail,
   promotionRequestSubject,
 } from "@/lib/promotionEmails";
 import { canRequestPromotion } from "@/lib/promotionRequests";
+import { findPackage, DEFAULT_PACKAGE_DAYS, formatPkr } from "@/lib/promotionPricing";
 
 /**
  * Recruiters ask for a listing to be promoted; admins act on the request.
@@ -36,7 +37,13 @@ export async function GET(req: NextRequest) {
   const requests = await prisma.promotionRequest.findMany({
     where: {
       ...(isAdmin ? {} : { recruiterId: session.user.id }),
-      ...(status ? { status } : isAdmin ? { status: "PENDING" } : {}),
+      // Admins default to the work queue: anything not yet resolved, which
+      // includes invoices still awaiting payment.
+      ...(status
+        ? { status }
+        : isAdmin
+        ? { status: { in: ["PENDING", "INVOICED"] as const } }
+        : {}),
     },
     orderBy: { createdAt: "desc" },
     take: 100,
@@ -47,6 +54,11 @@ export async function GET(req: NextRequest) {
       createdAt: true,
       reviewedAt: true,
       reviewNote: true,
+      packageDays: true,
+      amountPkr: true,
+      invoiceRef: true,
+      invoicedAt: true,
+      paidAt: true,
       jobPost: {
         select: {
           id: true,
@@ -87,10 +99,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { jobPostId, message } = body as { jobPostId?: unknown; message?: unknown };
+  const { jobPostId, message, packageDays } = body as {
+    jobPostId?: unknown;
+    message?: unknown;
+    packageDays?: unknown;
+  };
 
   if (typeof jobPostId !== "string" || jobPostId.trim() === "") {
     return NextResponse.json({ error: "jobPostId required" }, { status: 400 });
+  }
+
+  // Price is frozen onto the request at this point, so later changes to the
+  // package table never alter an invoice already quoted.
+  const pkg = findPackage(packageDays ?? DEFAULT_PACKAGE_DAYS);
+  if (!pkg) {
+    return NextResponse.json(
+      { error: "Choose one of the available promotion packages" },
+      { status: 400 }
+    );
   }
   if (message !== undefined && message !== null && typeof message !== "string") {
     return NextResponse.json({ error: "message must be text" }, { status: 400 });
@@ -124,13 +150,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // An outstanding invoice blocks a new request just as a pending one does.
   const existing = await prisma.promotionRequest.findFirst({
-    where: { jobPostId, status: "PENDING" },
-    select: { id: true },
+    where: { jobPostId, status: { in: ["PENDING", "INVOICED"] } },
+    select: { id: true, status: true },
   });
 
   const eligibility = canRequestPromotion(
-    { ...job, latestRequestStatus: existing ? "PENDING" : null },
+    { ...job, latestRequestStatus: existing ? existing.status : null },
     new Date()
   );
   if (!eligibility.allowed) {
@@ -145,8 +172,21 @@ export async function POST(req: NextRequest) {
   let request;
   try {
     request = await prisma.promotionRequest.create({
-      data: { jobPostId, recruiterId: session.user.id, message: note },
-      select: { id: true, status: true, createdAt: true, message: true },
+      data: {
+        jobPostId,
+        recruiterId: session.user.id,
+        message: note,
+        packageDays: pkg.days,
+        amountPkr: pkg.pricePkr,
+      },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        message: true,
+        packageDays: true,
+        amountPkr: true,
+      },
     });
   } catch {
     // The partial unique index is the real guard — two concurrent requests can
@@ -159,46 +199,31 @@ export async function POST(req: NextRequest) {
 
   const companyName = recruiter?.companyName || recruiter?.name || "A recruiter";
 
-  // Notify every admin, in-app and by email.
-  const admins = await prisma.user.findMany({
-    where: { role: "ADMIN", suspended: false },
-    select: { id: true, email: true },
+  // Goes through the shared channel, so it also reaches ADMIN_ALERT_EMAIL and
+  // never throws back into the request that created the row.
+  await notifyAdmins({
+    type: "PROMOTION_REQUESTED",
+    title: "Promotion requested",
+    body: `${companyName} asked to promote "${job.title}" — ${pkg.label}, ${formatPkr(pkg.pricePkr)}`,
+    data: { jobPostId: job.id, promotionRequestId: request.id },
+    emailSubject: promotionRequestSubject({ jobTitle: job.title, companyName }),
+    emailHtml: promotionRequestEmail({
+      jobId: job.id,
+      jobTitle: job.title,
+      companyName,
+      recruiterName: recruiter?.name ?? "Unknown",
+      recruiterEmail: recruiter?.email ?? "",
+      city: job.city,
+      jobType: job.jobType,
+      experienceLevel: job.experienceLevel,
+      salaryMin: job.salaryMin,
+      salaryMax: job.salaryMax,
+      applicationCount: job._count.applications,
+      message: note,
+      packageLabel: pkg.label,
+      amountPkr: pkg.pricePkr,
+    }),
   });
-
-  const subject = promotionRequestSubject({ jobTitle: job.title, companyName });
-  const html = promotionRequestEmail({
-    jobId: job.id,
-    jobTitle: job.title,
-    companyName,
-    recruiterName: recruiter?.name ?? "Unknown",
-    recruiterEmail: recruiter?.email ?? "",
-    city: job.city,
-    jobType: job.jobType,
-    experienceLevel: job.experienceLevel,
-    salaryMin: job.salaryMin,
-    salaryMax: job.salaryMax,
-    applicationCount: job._count.applications,
-    message: note,
-  });
-
-  for (const admin of admins) {
-    try {
-      const notification = await prisma.notification.create({
-        data: {
-          userId: admin.id,
-          type: "PROMOTION_REQUESTED",
-          title: "Promotion requested",
-          body: `${companyName} asked to promote "${job.title}"`,
-          data: { jobPostId: job.id, promotionRequestId: request.id },
-        },
-      });
-      emitToUser(admin.id, "notification:new", notification);
-      await sendEmail({ to: admin.email, subject, html });
-    } catch (error) {
-      // One admin failing must not lose the request itself.
-      console.error(`[promotion-request] notify admin ${admin.id} failed:`, error);
-    }
-  }
 
   broadcast("promotion:requested", { jobPostId: job.id });
 

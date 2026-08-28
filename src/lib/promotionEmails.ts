@@ -51,6 +51,8 @@ export interface PromotionRequestEmailOpts {
   salaryMax: number;
   applicationCount: number;
   message: string | null;
+  packageLabel: string;
+  amountPkr: number;
 }
 
 export function promotionRequestSubject(opts: {
@@ -92,6 +94,7 @@ export function promotionRequestEmail(opts: PromotionRequestEmailOpts): string {
       ${row("Level", escapeHtml(opts.experienceLevel))}
       ${row("Salary", `PKR ${opts.salaryMin.toLocaleString()}&ndash;${opts.salaryMax.toLocaleString()}`)}
       ${row("Applications", String(opts.applicationCount))}
+      ${row("Package", `${escapeHtml(opts.packageLabel)} &mdash; <strong>PKR ${opts.amountPkr.toLocaleString("en-PK")}</strong>`)}
       ${row("Requested by", `${escapeHtml(opts.recruiterName)} &lt;${escapeHtml(opts.recruiterEmail)}&gt;`)}
     </table>
 

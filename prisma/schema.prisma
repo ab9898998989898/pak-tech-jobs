@@ -78,12 +78,29 @@ enum NotificationType {
   PROMOTION_REQUESTED
   PROMOTION_APPROVED
   PROMOTION_DECLINED
+  PROMOTION_INVOICED
+  RECRUITER_REGISTERED
+  SALARY_SUBMITTED
+  PLAN_ENQUIRY
+  SUBSCRIPTION_EXPIRED
 }
 
 enum PromotionRequestStatus {
   PENDING
+  /// Invoice sent, waiting on an offline payment (bank transfer / wallet).
+  INVOICED
   APPROVED
   DECLINED
+}
+
+enum PlanEnquiryKind {
+  PREMIUM
+  ENTERPRISE
+}
+
+enum PlanEnquiryStatus {
+  OPEN
+  CLOSED
 }
 
 enum VerificationStatus {
@@ -177,6 +194,7 @@ model User {
   emailLogs                 EmailLog[]
   promotionRequests         PromotionRequest[] @relation("PromotionRequester")
   promotionReviews          PromotionRequest[] @relation("PromotionReviewer")
+  planEnquiries             PlanEnquiry[]      @relation("PlanEnquirer")
 }
 
 model JobPost {
@@ -500,6 +518,20 @@ model PromotionRequest {
   status       PromotionRequestStatus @default(PENDING)
   /// Optional note from the recruiter explaining why the role needs a boost.
   message      String?
+
+  // Manual billing. There is no payment gateway: an admin issues an invoice,
+  // the recruiter pays offline (bank transfer / JazzCash / Easypaisa), and the
+  // admin marks it paid, which promotes the listing.
+  /// Length of the package the recruiter chose, in days.
+  packageDays  Int?
+  /// Price quoted at request time, in whole PKR. Frozen so later price changes
+  /// never alter an invoice already sent.
+  amountPkr    Int?
+  /// Human-quotable reference the recruiter puts in their transfer, e.g. PTJ-4F2A9C.
+  invoiceRef   String?                @unique
+  invoicedAt   DateTime?
+  paidAt       DateTime?
+
   createdAt    DateTime               @default(now())
   reviewedAt   DateTime?
   reviewedById String?
@@ -509,5 +541,25 @@ model PromotionRequest {
 
   @@index([status, createdAt])
   @@index([jobPostId])
+  @@index([recruiterId])
+}
+
+// --- Plan Enquiries ---------------------------------------------------------
+
+/// A recruiter asking to buy into a paid tier. There is no self-serve checkout,
+/// so this is the "contact sales" channel: it alerts the admin and gives them a
+/// queue to work through rather than relying on an email thread.
+model PlanEnquiry {
+  id          String            @id @default(cuid())
+  recruiterId String
+  recruiter   User              @relation("PlanEnquirer", fields: [recruiterId], references: [id], onDelete: Cascade)
+  kind        PlanEnquiryKind
+  message     String?
+  status      PlanEnquiryStatus @default(OPEN)
+  createdAt   DateTime          @default(now())
+  handledAt   DateTime?
+  handledById String?
+
+  @@index([status, createdAt])
   @@index([recruiterId])
 }

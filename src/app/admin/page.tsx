@@ -60,9 +60,14 @@ interface EnterpriseEmployer {
 
 interface PromotionRequestRow {
   id: string;
-  status: "PENDING" | "APPROVED" | "DECLINED";
+  status: "PENDING" | "INVOICED" | "APPROVED" | "DECLINED";
   message: string | null;
   createdAt: string;
+  packageDays: number | null;
+  amountPkr: number | null;
+  invoiceRef: string | null;
+  invoicedAt: string | null;
+  paidAt: string | null;
   jobPost: {
     id: string;
     title: string;
@@ -448,9 +453,14 @@ function JobsTab({ jobs, setJobs, requests, setRequests, focusJobId }: {
   );
 
   const promotedCount = jobs.filter(isPromoted).length;
-  const pending = requests.filter(r => r.status === "PENDING");
+  // Both states are still the admin's problem: PENDING needs an invoice,
+  // INVOICED needs the payment confirming.
+  const pending = requests.filter(r => r.status === "PENDING" || r.status === "INVOICED");
+  const awaitingPayment = requests.filter(r => r.status === "INVOICED").length;
 
-  async function reviewRequest(req: PromotionRequestRow, action: "approve" | "decline") {
+  type ReviewAction = "invoice" | "mark-paid" | "approve" | "decline";
+
+  async function reviewRequest(req: PromotionRequestRow, action: ReviewAction) {
     setReviewingId(req.id);
     setErrorMsg("");
     try {
@@ -468,8 +478,15 @@ function JobsTab({ jobs, setJobs, requests, setRequests, focusJobId }: {
         setErrorMsg(data.error ?? "Could not update the request");
         return;
       }
-      setRequests(prev => prev.filter(r => r.id !== req.id));
-      if (action === "approve" && data.jobPost) {
+
+      if (action === "invoice") {
+        // Stays in the queue — it is now waiting on payment, not on a decision.
+        setRequests(prev => prev.map(r => (r.id === req.id ? { ...r, ...data } : r)));
+      } else {
+        setRequests(prev => prev.filter(r => r.id !== req.id));
+      }
+
+      if ((action === "approve" || action === "mark-paid") && data.jobPost) {
         setJobs(prev => prev.map(j =>
           j.id === data.jobPost.id
             ? { ...j, isFeatured: data.jobPost.isFeatured, featuredUntil: data.jobPost.featuredUntil }
@@ -522,7 +539,12 @@ function JobsTab({ jobs, setJobs, requests, setRequests, focusJobId }: {
       {pending.length > 0 && (
         <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-400">
-            ★ {pending.length} promotion request{pending.length === 1 ? "" : "s"} awaiting review
+            ★ {pending.length} promotion request{pending.length === 1 ? "" : "s"} open
+            {awaitingPayment > 0 && (
+              <span className="font-normal text-amber-400/70">
+                · {awaitingPayment} awaiting payment
+              </span>
+            )}
           </h3>
 
           <div className="space-y-2">
@@ -547,6 +569,27 @@ function JobsTab({ jobs, setJobs, requests, setRequests, focusJobId }: {
                       {req.jobPost._count.applications} application
                       {req.jobPost._count.applications === 1 ? "" : "s"} · asked {fmt(req.createdAt)}
                     </p>
+
+                    <p className="mt-1 text-xs">
+                      <span className="text-gray-400">Wants </span>
+                      <span className="font-semibold text-white">
+                        {req.packageDays ?? "—"} days
+                      </span>
+                      {req.amountPkr != null && (
+                        <>
+                          <span className="text-gray-400"> for </span>
+                          <span className="font-semibold text-amber-400">
+                            PKR {req.amountPkr.toLocaleString("en-PK")}
+                          </span>
+                        </>
+                      )}
+                      {req.status === "INVOICED" && req.invoiceRef && (
+                        <span className="ml-2 rounded-full border border-amber-500/40 px-2 py-0.5 text-[11px] font-semibold text-amber-400">
+                          Invoice {req.invoiceRef} sent — unpaid
+                        </span>
+                      )}
+                    </p>
+
                     {req.message && (
                       <p className="mt-1.5 border-l-2 border-gray-700 pl-2 text-xs italic text-gray-400">
                         “{req.message}”
@@ -555,13 +598,37 @@ function JobsTab({ jobs, setJobs, requests, setRequests, focusJobId }: {
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      onClick={() => reviewRequest(req, "approve")}
-                      disabled={reviewingId === req.id}
-                      className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
-                    >
-                      {reviewingId === req.id ? "…" : `Approve · ${days}d`}
-                    </button>
+                    {req.status === "PENDING" ? (
+                      <button
+                        onClick={() => reviewRequest(req, "invoice")}
+                        disabled={reviewingId === req.id}
+                        className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+                        title="Emails the recruiter an invoice with payment instructions"
+                      >
+                        {reviewingId === req.id ? "…" : "Send invoice"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => reviewRequest(req, "mark-paid")}
+                        disabled={reviewingId === req.id}
+                        className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+                        title="Payment received — promote the listing now"
+                      >
+                        {reviewingId === req.id ? "…" : "Mark paid & promote"}
+                      </button>
+                    )}
+
+                    {req.status === "PENDING" && (
+                      <button
+                        onClick={() => reviewRequest(req, "approve")}
+                        disabled={reviewingId === req.id}
+                        className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:text-white disabled:opacity-50"
+                        title="Promote without charging — for comps and goodwill"
+                      >
+                        Free · {days}d
+                      </button>
+                    )}
+
                     <button
                       onClick={() => reviewRequest(req, "decline")}
                       disabled={reviewingId === req.id}

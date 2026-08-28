@@ -3,6 +3,14 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import crypto from "crypto";
+import {
+  notifyAdmins,
+  adminEmailShell,
+  adminTable,
+  adminRow,
+  adminCta,
+  escapeHtml,
+} from "@/lib/adminAlerts";
 
 interface RegisterBody {
   email: string;
@@ -99,6 +107,31 @@ export async function POST(req: NextRequest) {
         title: "Account Under Review",
         body: "Your recruiter account is pending admin verification. You'll be notified once approved and can then start posting jobs.",
       },
+    });
+
+    // Tell the admin straight away — a recruiter cannot post until they are
+    // approved, so an unnoticed signup is a stalled customer.
+    await notifyAdmins({
+      type: "RECRUITER_REGISTERED",
+      title: "New recruiter registered",
+      body: `${companyName} (${name}) signed up and needs verification.`,
+      data: { userId: user.id },
+      emailSubject: `New recruiter awaiting verification: ${companyName}`,
+      emailHtml: adminEmailShell(`
+        <h2 style="color:#0a66c2;margin-top:0">New recruiter registered</h2>
+        <p>A recruiter account was created and is waiting for your approval.
+           They cannot post a job until you verify them.</p>
+        ${adminTable(
+          [
+            adminRow("Name", escapeHtml(name)),
+            adminRow("Company", escapeHtml(companyName as string)),
+            adminRow("Login email", escapeHtml(email)),
+            adminRow("Business email", escapeHtml(businessEmail as string)),
+            adminRow("Registered", new Date().toLocaleString("en-PK")),
+          ].join("")
+        )}
+        ${adminCta("/admin", "Review in admin panel")}
+      `),
     });
   }
 
