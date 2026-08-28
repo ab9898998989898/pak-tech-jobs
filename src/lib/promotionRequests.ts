@@ -7,7 +7,10 @@
 
 import { isPromotionActive, type PromotableJob } from "@/lib/promotedListings";
 
-export type RequestStatus = "PENDING" | "APPROVED" | "DECLINED";
+export type RequestStatus = "PENDING" | "INVOICED" | "APPROVED" | "DECLINED";
+
+/** Statuses that represent an unresolved request and block raising another. */
+export const OPEN_STATUSES: readonly RequestStatus[] = ["PENDING", "INVOICED"];
 
 export interface RequestableJob extends PromotableJob {
   isActive: boolean;
@@ -51,6 +54,13 @@ export function canRequestPromotion(
       status: 409,
     };
   }
+  if (job.latestRequestStatus === "INVOICED") {
+    return {
+      allowed: false,
+      reason: "An invoice for this listing is awaiting payment",
+      status: 409,
+    };
+  }
   return { allowed: true };
 }
 
@@ -73,9 +83,10 @@ export function canReviewRequest(status: RequestStatus): RequestEligibility {
 export function requestButtonState(
   job: RequestableJob,
   now: Date
-): "promoted" | "pending" | "requestable" | "unavailable" {
+): "promoted" | "invoiced" | "pending" | "requestable" | "unavailable" {
   if (isPromotionActive(job, now)) return "promoted";
   if (job.isClosed || !job.isActive) return "unavailable";
+  if (job.latestRequestStatus === "INVOICED") return "invoiced";
   if (job.latestRequestStatus === "PENDING") return "pending";
   return "requestable";
 }

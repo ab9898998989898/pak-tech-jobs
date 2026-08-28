@@ -35,7 +35,15 @@ export async function GET() {
       promotionRequests: {
         orderBy: { createdAt: "desc" },
         take: 1,
-        select: { id: true, status: true, createdAt: true, reviewNote: true },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          reviewNote: true,
+          invoiceRef: true,
+          amountPkr: true,
+          packageDays: true,
+        },
       },
     },
   });

@@ -7,6 +7,7 @@ import { broadcast } from "@/lib/socketio";
 import { getCached, setCached, invalidateCache } from "@/lib/cache";
 import { rateLimitByUser, RATE_LIMITS } from "@/lib/rateLimit";
 import { sortJobsByPromotion } from "@/lib/promotedListings";
+import { canSetPremiumListing } from "@/lib/enterpriseTier";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -220,12 +221,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Fetch the recruiter's tier to enforce isPremium access control
+    // Fetch the recruiter's tier to enforce isPremium access control.
+    // Uses the shared predicate rather than re-testing the tier inline, so this
+    // rule and the toggle's enabled state can never disagree.
     const recruiter = await prisma.user.findUnique({
       where: { id: session!.user.id },
       select: { tier: true },
     });
-    const canPremium = recruiter?.tier === "PRO" || recruiter?.tier === "ENTERPRISE";
+    const canPremium = canSetPremiumListing(recruiter?.tier ?? "FREE");
 
     const job = await prisma.jobPost.create({
       data: {

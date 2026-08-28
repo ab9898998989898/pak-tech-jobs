@@ -4,12 +4,20 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isPromotionActive, daysRemaining } from "@/lib/promotedListings";
+import {
+  PROMOTION_PACKAGES,
+  DEFAULT_PACKAGE_DAYS,
+  formatPkr,
+} from "@/lib/promotionPricing";
 
 interface PromotionRequestSummary {
   id: string;
-  status: "PENDING" | "APPROVED" | "DECLINED";
+  status: "PENDING" | "INVOICED" | "APPROVED" | "DECLINED";
   createdAt: string;
   reviewNote: string | null;
+  invoiceRef?: string | null;
+  amountPkr?: number | null;
+  packageDays?: number | null;
 }
 
 interface Job {
@@ -53,6 +61,7 @@ function RequestPromotionDialog({ job, onClose, onSubmitted }: {
   onSubmitted: (req: PromotionRequestSummary) => void;
 }) {
   const [message, setMessage] = useState("");
+  const [days, setDays] = useState<number>(DEFAULT_PACKAGE_DAYS);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -63,7 +72,11 @@ function RequestPromotionDialog({ job, onClose, onSubmitted }: {
       const res = await fetch("/api/promotion-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobPostId: job.id, message: message.trim() || undefined }),
+        body: JSON.stringify({
+          jobPostId: job.id,
+          packageDays: days,
+          message: message.trim() || undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -83,9 +96,41 @@ function RequestPromotionDialog({ job, onClose, onSubmitted }: {
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-2xl">
         <h2 className="text-lg font-semibold text-foreground">Request promotion</h2>
         <p className="mt-1 text-sm text-muted">
-          Ask an admin to feature <strong className="text-foreground">{job.title}</strong> above
-          regular listings. They&apos;ll be emailed straight away.
+          Feature <strong className="text-foreground">{job.title}</strong> above regular
+          listings. Pick a package and we&apos;ll email you an invoice — the promotion
+          starts once payment clears.
         </p>
+
+        <fieldset className="mt-4">
+          <legend className="mb-2 text-sm text-muted">Package</legend>
+          <div className="space-y-2">
+            {PROMOTION_PACKAGES.map((p) => (
+              <label
+                key={p.days}
+                className={`flex cursor-pointer items-center justify-between rounded-md border px-3 py-2 transition-colors ${
+                  days === p.days
+                    ? "border-primary bg-primary-light"
+                    : "border-border hover:bg-surface"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="package"
+                    checked={days === p.days}
+                    onChange={() => setDays(p.days)}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm font-medium text-foreground">{p.label}</span>
+                  <span className="text-xs text-muted">({p.days} days)</span>
+                </span>
+                <span className="text-sm font-semibold text-foreground">
+                  {formatPkr(p.pricePkr)}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <label className="mt-4 mb-1 block text-sm text-muted">
           Anything they should know? <span className="text-xs">(optional)</span>
@@ -200,6 +245,7 @@ export default function RecruiterJobsPage() {
             const isPromoted = promoted(job);
             const latest = job.promotionRequests?.[0];
             const pending = latest?.status === "PENDING";
+            const invoiced = latest?.status === "INVOICED";
             const declined = latest?.status === "DECLINED" && !isPromoted;
             const days = remaining(job);
 
@@ -233,6 +279,12 @@ export default function RecruiterJobsPage() {
                         Promotion requested
                       </span>
                     )}
+
+                    {invoiced && (
+                      <span className="rounded-full border border-accent/40 bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent dark:bg-transparent">
+                        Invoice sent — awaiting payment
+                      </span>
+                    )}
                   </div>
 
                   <p className="mt-0.5 text-xs text-muted">
@@ -241,6 +293,14 @@ export default function RecruiterJobsPage() {
                   <p className="mt-0.5 text-xs text-muted">
                     PKR {job.salaryMin.toLocaleString()} – {job.salaryMax.toLocaleString()}
                   </p>
+
+                  {invoiced && latest?.invoiceRef && (
+                    <p className="mt-1 text-xs text-muted">
+                      Invoice <strong className="text-foreground">{latest.invoiceRef}</strong>
+                      {latest.amountPkr ? ` · ${formatPkr(latest.amountPkr)}` : ""} — check your
+                      email for payment details, and quote the reference on your transfer.
+                    </p>
+                  )}
 
                   {declined && (
                     <p className="mt-1 text-xs text-muted">
@@ -254,11 +314,17 @@ export default function RecruiterJobsPage() {
                   {!job.isClosed && !isPromoted && (
                     <button
                       onClick={() => setPromoteJob(job)}
-                      disabled={pending}
-                      title={pending ? "An admin is reviewing your request" : "Ask an admin to feature this listing"}
+                      disabled={pending || invoiced}
+                      title={
+                        invoiced
+                          ? "Pay the invoice we emailed you to activate this promotion"
+                          : pending
+                          ? "An admin is reviewing your request"
+                          : "Feature this listing above regular ones"
+                      }
                       className="rounded-full border border-accent/40 px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {pending ? "Awaiting review" : "★ Request promotion"}
+                      {invoiced ? "Awaiting payment" : pending ? "Awaiting review" : "★ Promote"}
                     </button>
                   )}
 
